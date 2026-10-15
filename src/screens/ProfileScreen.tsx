@@ -1,15 +1,17 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { usePosts } from '../context/PostsContext';
-import { currentUser } from '../data/currentUser';
+import { useAuth, useCurrentUser } from '../context/AuthContext';
 import { colors } from '../theme';
 
 // Tu perfil con tus publicaciones
 export function ProfileScreen() {
   const { posts } = usePosts();
-  const myPosts = posts.filter((p) => p.author.name === currentUser.name);
+  const { signOut } = useAuth();
+  const currentUser = useCurrentUser();
+  const myPosts = posts.filter((p) => p.author.id === currentUser.id);
   const likesReceived = myPosts.reduce((sum, p) => sum + p.likes, 0);
   const replies = myPosts.reduce((sum, p) => sum + p.replies.length, 0);
 
@@ -23,6 +25,17 @@ export function ProfileScreen() {
         <Stat value={likesReceived} label="Me gusta" />
         <Stat value={replies} label="Respuestas" />
       </View>
+      <Pressable
+        style={styles.signOut}
+        onPress={() =>
+          Alert.alert('Cerrar sesión', '¿Seguro que quieres salir?', [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Salir', style: 'destructive', onPress: signOut },
+          ])
+        }
+      >
+        <Text style={styles.signOutText}>Cerrar sesión</Text>
+      </Pressable>
     </View>
   );
 
@@ -64,5 +77,14 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', marginTop: 18, paddingHorizontal: 20 },
   statValue: { fontSize: 18, fontWeight: '800', color: colors.text },
   statLabel: { color: colors.muted, fontSize: 13 },
+  signOut: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  signOutText: { color: colors.muted, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.muted, padding: 40 },
 });

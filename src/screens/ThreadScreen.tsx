@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { usePosts } from '../context/PostsContext';
-import { currentUser } from '../data/currentUser';
+import { useCurrentUser } from '../context/AuthContext';
 import { RootScreenProps } from '../navigationTypes';
 import { colors } from '../theme';
 import { timeAgo } from '../utils/time';
@@ -24,6 +25,8 @@ import { timeAgo } from '../utils/time';
 // Como no hay chats personales, aquí es donde se platica sobre cada publicación.
 export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
   const { posts, addReply } = usePosts();
+  const currentUser = useCurrentUser();
+  const [sending, setSending] = useState(false);
   const post = posts.find((p) => p.id === route.params.postId);
   const [text, setText] = useState('');
   const inputRef = useRef<TextInput>(null);
@@ -36,11 +39,18 @@ export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
 
   if (!post) return <Text style={styles.empty}>Esta publicación ya no existe.</Text>;
 
-  const send = () => {
-    if (!text.trim()) return;
-    addReply(post.id, text.trim());
-    setText('');
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+  const send = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    try {
+      await addReply(post.id, text.trim());
+      setText('');
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {
+      Alert.alert('No se pudo enviar', 'Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (

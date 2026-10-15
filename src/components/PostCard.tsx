@@ -1,8 +1,9 @@
 import { useRef } from 'react';
-import { Animated, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EventPost, PhotoPost, PollPost, Post, ProductPost, TextPost } from '../types';
 import { usePosts } from '../context/PostsContext';
+import { useCurrentUser } from '../context/AuthContext';
 import { useRootNavigation } from '../navigationTypes';
 import { colors, postTypeInfo } from '../theme';
 import { splitDate, timeAgo } from '../utils/time';
@@ -18,7 +19,15 @@ type Props = {
 // Una publicación estilo Instagram: autor, contenido, corazón, respuestas y compartir.
 export function PostCard({ post, inThread = false, onReplyPress }: Props) {
   const navigation = useRootNavigation();
-  const { toggleLike } = usePosts();
+  const { toggleLike, deletePost } = usePosts();
+  const me = useCurrentUser();
+  const isMine = post.author.id === me.id;
+
+  const confirmDelete = () =>
+    Alert.alert('Borrar publicación', 'Se borrará para todos. ¿Seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar', style: 'destructive', onPress: () => deletePost(post.id) },
+    ]);
 
   const openThread = () =>
     onReplyPress ? onReplyPress() : navigation.navigate('Thread', { postId: post.id, focusReply: true });
@@ -41,6 +50,11 @@ export function PostCard({ post, inThread = false, onReplyPress }: Props) {
           </Text>
         </View>
         {post.type !== 'text' && <TypeTag type={post.type} />}
+        {isMine && (
+          <Pressable onPress={confirmDelete} hitSlop={10}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
+          </Pressable>
+        )}
       </View>
 
       <PostBody post={post} onDoubleTap={likeFromDoubleTap} onAsk={openThread} />

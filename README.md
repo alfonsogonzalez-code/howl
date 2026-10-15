@@ -33,6 +33,14 @@ npx expo start
 
 **Si no carga:** la red de la escuela a veces bloquea la conexión entre dispositivos. Detén el servidor con `Ctrl + C` y usa `npx expo start --tunnel`. También revisa que el Firewall de Windows permita a Node.js en redes privadas.
 
+## Configurar Supabase (una sola vez)
+
+1. En supabase.com abre tu proyecto, entra a **SQL Editor**, dale **New query**, pega todo el archivo `supabase/schema.sql` y dale **Run**.
+2. Entra a **Authentication → Sign In / Providers → Email** y desactiva **Confirm email**. Dale **Save**.
+3. La URL y la llave del proyecto van en `src/config.ts`.
+
+Se entra con correo y contraseña. Más adelante se puede agregar verificación por correo conectando un servicio de correo (SMTP).
+
 ## Cómo está organizado el código
 
 ```
@@ -49,8 +57,12 @@ src/
   screens/ComposerScreen.tsx  Formulario para publicar (cambia según el tipo)
   components/PostCard.tsx     Diseño de cada tipo de publicación
   components/CreateSheet.tsx  Menú que sale al tocar el +
-  data/currentUser.ts         Tu nombre y carrera (cámbialos aquí)
-  data/posts.ts               Publicaciones de ejemplo
+  context/AuthContext.tsx     Inicio de sesión y perfil
+  screens/LoginScreen.tsx     Entrar o crear cuenta con correo y contraseña
+  screens/ProfileSetupScreen.tsx  Nombre y carrera la primera vez
+  lib/supabase.ts             Conexión con la base de datos y subida de fotos
+  config.ts                   Datos de Supabase y lista de carreras
+supabase/schema.sql           Tablas y reglas de seguridad de la base de datos
   types.ts, theme.ts          Tipos de datos y colores
 ```
 
@@ -58,7 +70,7 @@ src/
 
 - [x] Paso 1: proyecto inicial con el Feed de ejemplo
 - [x] Paso 2: Feed estilo Instagram, botón +, corazón y respuestas en hilo
-- [ ] Paso 3: inicio de sesión con correo institucional (Supabase)
+- [x] Paso 3: inicio de sesión con correo y contraseña, y publicaciones guardadas (Supabase)
 - [ ] Paso 4: publicar desde la app
 - [ ] Paso 5: chats por carrera en tiempo real
 - [ ] Paso 6: notificaciones, reportes y moderación

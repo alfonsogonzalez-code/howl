@@ -1,6 +1,7 @@
 // Tipos de datos de Howl.
 
 export type Author = {
+  id: string;
   name: string;
   career: string; // carrera, por ejemplo "Ing. en Software"
   avatarColor: string;
@@ -11,7 +12,7 @@ export type Reply = {
   id: string;
   author: Author;
   text: string;
-  createdAt: number; // fecha en milisegundos (Date.now())
+  createdAt: number; // fecha en milisegundos
 };
 
 type BasePost = {

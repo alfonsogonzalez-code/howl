@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -92,13 +93,22 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
     }
   };
 
-  const publish = () => {
+  const [publishing, setPublishing] = useState(false);
+
+  const publish = async () => {
     const draft = buildDraft();
     if (typeof draft === 'string') {
       Alert.alert('Falta algo', draft);
       return;
     }
-    addPost(draft);
+    setPublishing(true);
+    try {
+      await addPost(draft);
+    } catch {
+      setPublishing(false);
+      Alert.alert('No se pudo publicar', 'Revisa tu conexión e inténtalo de nuevo.');
+      return;
+    }
     // Regresa al Feed cerrando este formulario (no abre otra pantalla encima)
     navigation.popTo('Tabs', { screen: 'Inicio' });
   };
@@ -199,8 +209,16 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <Pressable style={[styles.publish, { backgroundColor: info.color }]} onPress={publish}>
-          <Text style={styles.publishText}>Publicar {info.label.toLowerCase()}</Text>
+        <Pressable
+          style={[styles.publish, { backgroundColor: info.color, opacity: publishing ? 0.6 : 1 }]}
+          onPress={publish}
+          disabled={publishing}
+        >
+          {publishing ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.publishText}>Publicar {info.label.toLowerCase()}</Text>
+          )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>

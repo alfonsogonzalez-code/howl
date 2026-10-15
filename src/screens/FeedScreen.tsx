@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { usePosts } from '../context/PostsContext';
-import { currentUser } from '../data/currentUser';
+import { useCurrentUser } from '../context/AuthContext';
 import { useRootNavigation } from '../navigationTypes';
 import { PostType } from '../types';
 import { colors, postTypeInfo } from '../theme';
@@ -22,7 +22,16 @@ const filters: { key: Filter; label: string }[] = [
 
 // Pantalla principal: siempre es lo primero que ves al abrir Howl.
 export function FeedScreen() {
-  const { posts } = usePosts();
+  const { posts, loading, refresh } = usePosts();
+  const currentUser = useCurrentUser();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Jalar hacia abajo para recargar
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  };
   const navigation = useRootNavigation();
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -77,7 +86,19 @@ export function FeedScreen() {
         keyExtractor={(post) => post.id}
         renderItem={({ item }) => <PostCard post={item} />}
         ListHeaderComponent={header}
-        ListEmptyComponent={<Text style={styles.empty}>Aún no hay publicaciones de este tipo.</Text>}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator style={{ padding: 40 }} color={colors.primary} />
+          ) : (
+            <Text style={styles.empty}>
+              {filter === 'all'
+                ? 'Aún no hay publicaciones. ¡Sé el primero con el botón +!'
+                : 'Aún no hay publicaciones de este tipo.'}
+            </Text>
+          )
+        }
       />
     </SafeAreaView>
   );
