@@ -23,11 +23,11 @@ const PostsContext = createContext<PostsContextValue | null>(null);
 // Lo que pedimos a la base de datos: la publicación con su autor, likes, votos, asistentes y respuestas
 const POST_QUERY = `
   id, type, data, created_at,
-  author:profiles(*),
+  author:profiles!posts_author_id_fkey(*),
   likes(user_id),
   poll_votes(user_id, option_id),
   event_attendees(user_id),
-  replies(id, text, created_at, author:profiles(*))
+  replies(id, text, created_at, author:profiles!replies_author_id_fkey(*))
 `;
 
 type ProfileRow = { id: string; name: string; career: string; avatar_color: string };
