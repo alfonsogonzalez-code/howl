@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,8 +13,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useHeaderHeight } from '@react-navigation/elements';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { usePosts } from '../context/PostsContext';
 import { RootScreenProps } from '../navigationTypes';
 import { PostDraft } from '../types';
@@ -28,8 +25,7 @@ const MAX_TEXT = 280; // como Twitter
 export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'>) {
   const { type } = route.params;
   const { addPost } = usePosts();
-  const headerHeight = useHeaderHeight();
-  const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
 
   // Todos los campos posibles; cada tipo usa solo los suyos
   const [text, setText] = useState('');
@@ -116,12 +112,12 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
   const info = postTypeInfo[type];
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={headerHeight}
-    >
-      <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+    <View style={styles.container} onLayout={keyboard.onLayout}>
+      <ScrollView
+        contentContainerStyle={styles.form}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         {type === 'text' && (
           <>
             <TextInput
@@ -208,7 +204,8 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      {/* El botón de publicar queda justo encima del teclado */}
+      <View style={[styles.footer, { paddingBottom: keyboard.bottom + 12 }]}>
         <Pressable
           style={[styles.publish, { backgroundColor: info.color, opacity: publishing ? 0.6 : 1 }]}
           onPress={publish}
@@ -221,7 +218,7 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
           )}
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -272,7 +269,13 @@ const styles = StyleSheet.create({
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   optionLetter: { fontWeight: '700', color: colors.muted, width: 20 },
   addOption: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+  },
   publish: { borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   publishText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

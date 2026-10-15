@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -9,6 +9,9 @@ import { ChatsScreen } from './screens/ChatsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { ThreadScreen } from './screens/ThreadScreen';
 import { ComposerScreen } from './screens/ComposerScreen';
+import { ChatRoomScreen } from './screens/ChatRoomScreen';
+import { NotificationsScreen } from './screens/NotificationsScreen';
+import { useChat } from './context/ChatContext';
 import { CreateSheet } from './components/CreateSheet';
 import { PostType } from './types';
 import { RootStackParamList, TabParamList, useRootNavigation } from './navigationTypes';
@@ -27,7 +30,25 @@ const tabIcons: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
 
 function Tabs() {
   const navigation = useRootNavigation();
+  const { career, membership, unread, join } = useChat();
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Al tocar Mensajes sin estar en el grupo, primero pregunta si te quieres unir
+  const askToJoin = () =>
+    Alert.alert(
+      'Chat de tu carrera',
+      `¿Quieres unirte al chat grupal de ${career}? Recibirás avisos de los mensajes nuevos.`,
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: 'Unirme',
+          onPress: () =>
+            join()
+              .then(() => navigation.navigate('ChatRoom'))
+              .catch(() => Alert.alert('No se pudo unir', 'Revisa tu conexión e inténtalo de nuevo.')),
+        },
+      ],
+    );
 
   // Tipo elegido en el menú; se abre el formulario cuando el menú termina de cerrarse
   const [pendingType, setPendingType] = useState<PostType | null>(null);
@@ -76,7 +97,19 @@ function Tabs() {
             ),
           }}
         />
-        <Tab.Screen name="Mensajes" component={ChatsScreen} />
+        <Tab.Screen
+          name="Mensajes"
+          component={ChatsScreen}
+          options={{
+            tabBarBadge: unread > 0 ? (unread > 99 ? '99+' : unread) : undefined,
+            tabBarBadgeStyle: styles.badge,
+          }}
+          listeners={{
+            tabPress: () => {
+              if (membership === null) askToJoin();
+            },
+          }}
+        />
         <Tab.Screen name="Perfil" component={ProfileScreen} />
       </Tab.Navigator>
       <CreateSheet
@@ -98,6 +131,8 @@ export function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerTintColor: colors.text, headerBackTitle: 'Atrás' }}>
       <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
       <Stack.Screen name="Thread" component={ThreadScreen} options={{ title: 'Hilo' }} />
+      <Stack.Screen name="ChatRoom" component={ChatRoomScreen} options={{ title: '' }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notificaciones' }} />
       <Stack.Screen
         name="Composer"
         component={ComposerScreen}
@@ -111,6 +146,7 @@ export function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
+  badge: { backgroundColor: colors.heart, fontSize: 11, fontWeight: '700' },
   createButtonWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   createButton: {
     width: 46,

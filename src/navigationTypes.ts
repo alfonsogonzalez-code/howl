@@ -16,6 +16,8 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   Thread: { postId: string; focusReply?: boolean };
   Composer: { type: PostType };
+  ChatRoom: undefined;
+  Notifications: undefined;
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

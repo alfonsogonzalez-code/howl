@@ -74,3 +74,26 @@ type DraftOf<T> = T extends Post
   ? Omit<T, 'id' | 'author' | 'createdAt' | 'likes' | 'liked' | 'replies'>
   : never;
 export type PostDraft = DraftOf<Post>;
+
+// Mensaje del chat grupal de una carrera
+export type ChatMessage = {
+  id: string;
+  author: Author;
+  text: string;
+  createdAt: number;
+  pending?: boolean; // todavía se está enviando
+};
+
+// Aviso de que alguien interactuó con algo tuyo
+export type NotificationType = 'like' | 'reply' | 'thread' | 'vote' | 'going';
+export type AppNotification = {
+  id: string;
+  type: NotificationType;
+  actor: Author;
+  postId: string;
+  postPreview: string; // de qué publicación se trata
+  postImage: string | null;
+  text: string | null; // lo que respondieron
+  read: boolean;
+  createdAt: number;
+};

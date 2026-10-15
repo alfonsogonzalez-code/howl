@@ -7,19 +7,44 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.upvt.howl"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6D28D9",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.upvt.howl"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "scheme": "howl",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Howl necesita acceso a tus fotos para que puedas publicarlas.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "628c21af-7aa7-4def-b05d-135408b3e66a"
+      }
+    },
+    "owner": "ponchogg12",
+    "updates": {
+      "url": "https://u.expo.dev/628c21af-7aa7-4def-b05d-135408b3e66a"
     }
   }
 }

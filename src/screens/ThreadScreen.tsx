@@ -1,22 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useHeaderHeight } from '@react-navigation/elements';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { usePosts } from '../context/PostsContext';
 import { useCurrentUser } from '../context/AuthContext';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { RootScreenProps } from '../navigationTypes';
 import { colors } from '../theme';
 import { timeAgo } from '../utils/time';
@@ -24,14 +13,14 @@ import { timeAgo } from '../utils/time';
 // Hilo de una publicación: la publicación arriba y todas sus respuestas abajo.
 // Como no hay chats personales, aquí es donde se platica sobre cada publicación.
 export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
-  const { posts, addReply } = usePosts();
+  const { posts, addReply, deleteReply } = usePosts();
   const currentUser = useCurrentUser();
   const [sending, setSending] = useState(false);
   const post = posts.find((p) => p.id === route.params.postId);
   const [text, setText] = useState('');
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList>(null);
-  const headerHeight = useHeaderHeight();
+  const keyboard = useKeyboardInset();
 
   useEffect(() => {
     if (route.params.focusReply) setTimeout(() => inputRef.current?.focus(), 400);
@@ -54,13 +43,11 @@ export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={headerHeight}
-    >
+    <View style={styles.container} onLayout={keyboard.onLayout}>
       <FlatList
         ref={listRef}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         data={post.replies}
         keyExtractor={(r) => r.id}
         ListHeaderComponent={
@@ -74,7 +61,19 @@ export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.reply}>
+          <Pressable
+            style={styles.reply}
+            // Deja presionada tu respuesta para borrarla
+            onLongPress={
+              item.author.id === currentUser.id
+                ? () =>
+                    Alert.alert('Borrar respuesta', '¿Seguro?', [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: 'Borrar', style: 'destructive', onPress: () => deleteReply(post.id, item.id) },
+                    ])
+                : undefined
+            }
+          >
             <Avatar author={item.author} size={34} />
             <View style={styles.bubble}>
               <Text style={styles.replyAuthor}>
@@ -82,11 +81,18 @@ export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
               </Text>
               <Text style={styles.replyText}>{item.text}</Text>
             </View>
-          </View>
+          </Pressable>
         )}
       />
-      <SafeAreaView edges={['bottom']} style={styles.inputBar}>
-        <Avatar author={currentUser} size={34} />
+      <View
+        style={[
+          styles.inputBar,
+          { paddingBottom: keyboard.keyboardOpen ? keyboard.bottom + 8 : Math.max(keyboard.bottom, 10) },
+        ]}
+      >
+        <View style={{ paddingBottom: 3 }}>
+          <Avatar author={currentUser} size={34} />
+        </View>
         <TextInput
           ref={inputRef}
           value={text}
@@ -96,11 +102,16 @@ export function ThreadScreen({ route }: RootScreenProps<'Thread'>) {
           style={styles.input}
           multiline
         />
-        <Pressable onPress={send} disabled={!text.trim()} hitSlop={8}>
-          <Ionicons name="send" size={24} color={text.trim() ? colors.primary : colors.border} />
+        <Pressable
+          onPress={send}
+          disabled={!text.trim() || sending}
+          hitSlop={6}
+          style={[styles.sendButton, (!text.trim() || sending) && { backgroundColor: colors.border }]}
+        >
+          <Ionicons name="arrow-up" size={22} color="#fff" />
         </Pressable>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 }
 
@@ -121,23 +132,31 @@ const styles = StyleSheet.create({
   replyText: { color: colors.text, fontSize: 15, marginTop: 2 },
   inputBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 10,
     paddingTop: 8,
-    paddingBottom: 8,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   input: {
     flex: 1,
-    maxHeight: 100,
+    minHeight: 40,
+    maxHeight: 120,
     backgroundColor: colors.surface,
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingTop: 9,
-    paddingBottom: 9,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
     fontSize: 15,
     color: colors.text,
   },

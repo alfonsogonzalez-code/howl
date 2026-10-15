@@ -4,6 +4,10 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PostsProvider } from './src/context/PostsContext';
+import { BannerProvider } from './src/context/BannerContext';
+import { NotificationsProvider } from './src/context/NotificationsContext';
+import { ChatProvider } from './src/context/ChatContext';
+import { navigationRef } from './src/navigationRef';
 import { RootNavigator } from './src/navigation';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ProfileSetupScreen } from './src/screens/ProfileSetupScreen';
@@ -42,8 +46,14 @@ function Gate() {
   // La app siempre abre en la pestaña Inicio (el Feed)
   return (
     <PostsProvider>
-      <NavigationContainer theme={theme}>
-        <RootNavigator />
+      <NavigationContainer theme={theme} ref={navigationRef}>
+        <BannerProvider>
+          <NotificationsProvider>
+            <ChatProvider>
+              <RootNavigator />
+            </ChatProvider>
+          </NotificationsProvider>
+        </BannerProvider>
       </NavigationContainer>
     </PostsProvider>
   );

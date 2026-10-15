@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { usePosts } from '../context/PostsContext';
+import { useNotifications } from '../context/NotificationsContext';
 import { useCurrentUser } from '../context/AuthContext';
 import { useRootNavigation } from '../navigationTypes';
 import { PostType } from '../types';
@@ -22,8 +23,9 @@ const filters: { key: Filter; label: string }[] = [
 
 // Pantalla principal: siempre es lo primero que ves al abrir Howl.
 export function FeedScreen() {
-  const { posts, loading, refresh } = usePosts();
+  const { posts, loading, loadError, refresh } = usePosts();
   const currentUser = useCurrentUser();
+  const { unread } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
 
   // Jalar hacia abajo para recargar
@@ -69,6 +71,7 @@ export function FeedScreen() {
           );
         })}
       </ScrollView>
+      <View style={styles.headerLine} />
     </View>
   );
 
@@ -76,10 +79,14 @@ export function FeedScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topBar}>
         <Text style={styles.logo}>Howl</Text>
-        <View style={styles.topIcons}>
-          <Ionicons name="search-outline" size={26} color={colors.text} />
-          <Ionicons name="notifications-outline" size={26} color={colors.text} />
-        </View>
+        <Pressable hitSlop={10} onPress={() => navigation.navigate('Notifications')}>
+          <Ionicons name={unread > 0 ? 'notifications' : 'notifications-outline'} size={27} color={colors.text} />
+          {unread > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          )}
+        </Pressable>
       </View>
       <FlatList
         data={visiblePosts}
@@ -91,6 +98,8 @@ export function FeedScreen() {
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator style={{ padding: 40 }} color={colors.primary} />
+          ) : loadError ? (
+            <Text style={styles.empty}>No se pudieron cargar las publicaciones:{'\n'}{loadError}</Text>
           ) : (
             <Text style={styles.empty}>
               {filter === 'all'
@@ -114,7 +123,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   logo: { fontSize: 30, fontWeight: '900', color: colors.primary, letterSpacing: -1 },
-  topIcons: { flexDirection: 'row', gap: 18 },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -7,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.heart,
+    borderWidth: 2,
+    borderColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -131,6 +154,8 @@ const styles = StyleSheet.create({
   },
   composerPlaceholder: { color: colors.muted, fontSize: 15 },
   filters: { gap: 8, paddingHorizontal: 14, paddingBottom: 12 },
+  // Línea delgada entre el encabezado y las publicaciones
+  headerLine: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,

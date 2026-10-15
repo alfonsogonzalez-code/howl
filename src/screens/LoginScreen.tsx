@@ -2,8 +2,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useAuth } from '../context/AuthContext';
 import { isValidEmail } from '../config';
 import { colors } from '../theme';
@@ -22,6 +21,7 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const keyboard = useKeyboardInset();
 
   const submit = async () => {
     if (!isValidEmail(email)) return Alert.alert('Correo no válido', 'Revisa que tu correo esté bien escrito.');
@@ -48,11 +48,9 @@ export function LoginScreen() {
   const isLogin = mode === 'login';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <SafeAreaView style={styles.container} edges={['top']} onLayout={keyboard.onLayout}>
+      {/* Con el teclado abierto, todo sube para que se vea el botón */}
+      <View style={[styles.content, { paddingBottom: keyboard.bottom + 24 }]}>
         <Text style={styles.logo}>Howl</Text>
         <Text style={styles.subtitle}>La comunidad de la UPVT en un solo lugar</Text>
 
@@ -96,7 +94,7 @@ export function LoginScreen() {
             </Text>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

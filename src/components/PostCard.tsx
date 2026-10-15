@@ -57,23 +57,22 @@ export function PostCard({ post, inThread = false, onReplyPress }: Props) {
         )}
       </View>
 
-      <PostBody post={post} onDoubleTap={likeFromDoubleTap} onAsk={openThread} />
+      <PostBody post={post} onDoubleTap={likeFromDoubleTap} />
 
+      {/* Corazón, hilo y compartir, con su número al lado como en Instagram */}
       <View style={styles.actions}>
-        <HeartButton liked={post.liked} onPress={() => toggleLike(post.id)} />
-        <Pressable onPress={openThread} hitSlop={8}>
-          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
+        <View style={styles.action}>
+          <HeartButton liked={post.liked} onPress={() => toggleLike(post.id)} />
+          {post.likes > 0 && <Text style={styles.count}>{post.likes}</Text>}
+        </View>
+        <Pressable onPress={openThread} hitSlop={8} style={styles.action}>
+          <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
+          {post.replies.length > 0 && <Text style={styles.count}>{post.replies.length}</Text>}
         </Pressable>
-        <Pressable onPress={share} hitSlop={8}>
-          <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
+        <Pressable onPress={share} hitSlop={8} style={styles.action}>
+          <Ionicons name="paper-plane-outline" size={23} color={colors.text} />
         </Pressable>
       </View>
-
-      {post.likes > 0 && (
-        <Text style={styles.likes}>
-          {post.likes} me gusta
-        </Text>
-      )}
 
       {!inThread && post.replies.length > 0 && (
         <Pressable onPress={openThread} style={styles.replyPreview}>
@@ -85,11 +84,6 @@ export function PostCard({ post, inThread = false, onReplyPress }: Props) {
             <Text style={styles.bold}>{post.replies[post.replies.length - 1].author.name} </Text>
             {post.replies[post.replies.length - 1].text}
           </Text>
-        </Pressable>
-      )}
-      {!inThread && post.replies.length === 0 && (
-        <Pressable onPress={openThread} style={styles.replyPreview}>
-          <Text style={styles.meta}>Responder en el hilo…</Text>
         </Pressable>
       )}
     </View>
@@ -178,9 +172,9 @@ function DoubleTapImage({ uri, ratio, onDoubleTap }: { uri: string; ratio: numbe
   );
 }
 
-type BodyProps = { post: Post; onDoubleTap: () => void; onAsk: () => void };
+type BodyProps = { post: Post; onDoubleTap: () => void };
 
-function PostBody({ post, onDoubleTap, onAsk }: BodyProps) {
+function PostBody({ post, onDoubleTap }: BodyProps) {
   switch (post.type) {
     case 'text':
       return <TextBody post={post} />;
@@ -189,7 +183,7 @@ function PostBody({ post, onDoubleTap, onAsk }: BodyProps) {
     case 'poll':
       return <PollBody post={post} />;
     case 'product':
-      return <ProductBody post={post} onDoubleTap={onDoubleTap} onAsk={onAsk} />;
+      return <ProductBody post={post} onDoubleTap={onDoubleTap} />;
     case 'event':
       return <EventBody post={post} />;
   }
@@ -243,7 +237,7 @@ function PollBody({ post }: { post: PollPost }) {
   );
 }
 
-function ProductBody({ post, onDoubleTap, onAsk }: { post: ProductPost; onDoubleTap: () => void; onAsk: () => void }) {
+function ProductBody({ post, onDoubleTap }: { post: ProductPost; onDoubleTap: () => void }) {
   return (
     <View>
       <DoubleTapImage uri={post.imageUrl} ratio={4 / 3} onDoubleTap={onDoubleTap} />
@@ -251,10 +245,6 @@ function ProductBody({ post, onDoubleTap, onAsk }: { post: ProductPost; onDouble
         <Text style={styles.price}>${post.price.toLocaleString('es-MX')}</Text>
         <Text style={styles.productName}>{post.name}</Text>
         {post.description ? <Text style={styles.description}>{post.description}</Text> : null}
-        <Pressable style={styles.outlineButton} onPress={onAsk}>
-          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
-          <Text style={styles.outlineButtonText}>Preguntar en el hilo</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -308,9 +298,11 @@ function EventBody({ post }: { post: EventPost }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.background,
-    paddingVertical: 12,
-    borderBottomWidth: 8,
-    borderBottomColor: colors.surface,
+    paddingTop: 12,
+    paddingBottom: 14,
+    // Línea delgada entre publicaciones
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, marginBottom: 10 },
   authorName: { fontWeight: '700', fontSize: 15, color: colors.text },
@@ -334,9 +326,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actions: { flexDirection: 'row', gap: 18, paddingHorizontal: 14, paddingTop: 12 },
-  likes: { fontWeight: '700', color: colors.text, paddingHorizontal: 14, marginTop: 8 },
-  replyPreview: { paddingHorizontal: 14, marginTop: 4, gap: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 14, paddingTop: 12 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  count: { fontWeight: '700', color: colors.text, fontSize: 14 },
+  replyPreview: { paddingHorizontal: 14, marginTop: 8, gap: 2 },
   replyText: { color: colors.text, fontSize: 14 },
   option: {
     flexDirection: 'row',
@@ -356,18 +349,6 @@ const styles = StyleSheet.create({
   price: { fontSize: 22, fontWeight: '800', color: colors.price },
   productName: { fontSize: 17, fontWeight: '800', color: colors.text, marginTop: 2 },
   description: { color: colors.muted, fontSize: 15, marginTop: 4, lineHeight: 21 },
-  outlineButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 10,
-    marginTop: 12,
-  },
-  outlineButtonText: { color: colors.primary, fontWeight: '700' },
   eventBox: { gap: 10 },
   eventTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   dateTile: {

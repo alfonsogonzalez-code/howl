@@ -17,3 +17,10 @@ export const CAREERS = [
   'Biotecnología',
   'Administración',
 ];
+
+// Color del grupo de cada carrera
+const CAREER_COLORS = ['#8B5CF6', '#0EA5E9', '#F97316', '#14B8A6', '#EC4899', '#16A34A', '#F59E0B'];
+export function careerColor(career: string) {
+  const index = CAREERS.indexOf(career);
+  return CAREER_COLORS[(index >= 0 ? index : career.length) % CAREER_COLORS.length];
+}

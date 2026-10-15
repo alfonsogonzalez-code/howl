@@ -17,3 +17,30 @@ export function splitDate(date: string): { day: string; month: string } | null {
   if (!day || !monthName) return null;
   return { day, month: monthName };
 }
+
+// Hora en formato 9:41 p. m. para los mensajes del chat
+export function clockTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'a. m.' : 'p. m.'}`;
+}
+
+const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+// "Hoy", "Ayer" o "12 oct" para separar los días en el chat
+export function dayLabel(timestamp: number): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Hoy';
+  if (date.toDateString() === yesterday.toDateString()) return 'Ayer';
+  return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
+}
+
+// En la lista de chats: la hora si fue hoy, "Ayer" o la fecha
+export function chatListTime(timestamp: number): string {
+  const label = dayLabel(timestamp);
+  return label === 'Hoy' ? clockTime(timestamp) : label;
+}

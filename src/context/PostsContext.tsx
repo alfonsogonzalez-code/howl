@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { supabase, uploadImage } from '../lib/supabase';
-import { Author, Post, PostDraft } from '../types';
+import { ProfileRow, toAuthor } from '../lib/profiles';
+import { Post, PostDraft } from '../types';
 import { useCurrentUser } from './AuthContext';
 
 // Aquí viven todas las publicaciones y las acciones sobre ellas.
@@ -9,6 +10,7 @@ import { useCurrentUser } from './AuthContext';
 type PostsContextValue = {
   posts: Post[];
   loading: boolean;
+  loadError: string | null;
   refresh: () => Promise<void>;
   addPost: (draft: PostDraft) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
@@ -16,11 +18,14 @@ type PostsContextValue = {
   vote: (postId: string, optionId: string) => void;
   toggleGoing: (postId: string) => void;
   addReply: (postId: string, text: string) => Promise<void>;
+  deleteReply: (postId: string, replyId: string) => Promise<void>;
 };
 
 const PostsContext = createContext<PostsContextValue | null>(null);
 
-// Lo que pedimos a la base de datos: la publicación con su autor, likes, votos, asistentes y respuestas
+// Lo que pedimos a la base de datos: la publicación con su autor, likes, votos, asistentes y respuestas.
+// "!posts_author_id_fkey" le dice a Supabase cuál relación usar para el autor,
+// porque posts y profiles también se conectan por likes, votos y asistentes.
 const POST_QUERY = `
   id, type, data, created_at,
   author:profiles!posts_author_id_fkey(*),
@@ -30,7 +35,6 @@ const POST_QUERY = `
   replies(id, text, created_at, author:profiles!replies_author_id_fkey(*))
 `;
 
-type ProfileRow = { id: string; name: string; career: string; avatar_color: string };
 type PostRow = {
   id: string;
   type: Post['type'];
@@ -42,13 +46,6 @@ type PostRow = {
   event_attendees: { user_id: string }[];
   replies: { id: string; text: string; created_at: string; author: ProfileRow }[];
 };
-
-const toAuthor = (row: ProfileRow): Author => ({
-  id: row.id,
-  name: row.name,
-  career: row.career,
-  avatarColor: row.avatar_color,
-});
 
 // Convierte una fila de la base de datos en una publicación de la app
 function toPost(row: PostRow, myId: string): Post {
@@ -97,6 +94,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const me = useCurrentUser();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
@@ -104,7 +102,12 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       .select(POST_QUERY)
       .order('created_at', { ascending: false })
       .limit(100);
-    if (!error && data) setPosts((data as unknown as PostRow[]).map((row) => toPost(row, me.id)));
+    if (error) {
+      setLoadError(error.message);
+    } else {
+      setLoadError(null);
+      setPosts((data as unknown as PostRow[]).map((row) => toPost(row, me.id)));
+    }
     setLoading(false);
   }, [me.id]);
 
@@ -140,6 +143,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const value: PostsContextValue = {
     posts,
     loading,
+    loadError,
     refresh,
 
     addPost: async (draft) => {
@@ -209,6 +213,11 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from('replies').insert({ post_id: postId, text });
       if (error) throw error;
       await refresh();
+    },
+
+    deleteReply: async (postId, replyId) => {
+      updateLocal(postId, (p) => ({ ...p, replies: p.replies.filter((r) => r.id !== replyId) }));
+      await check(supabase.from('replies').delete().eq('id', replyId));
     },
   };
 

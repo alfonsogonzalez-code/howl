@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { CAREERS } from '../config';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme';
 
 // Primera vez que entras: tu nombre y tu carrera
@@ -11,6 +12,7 @@ export function ProfileSetupScreen() {
   const [name, setName] = useState('');
   const [career, setCareer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const keyboard = useKeyboardInset();
 
   const save = async () => {
     if (name.trim().length < 2) return Alert.alert('Falta tu nombre', 'Escribe tu nombre y apellido.');
@@ -25,8 +27,11 @@ export function ProfileSetupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={styles.container} edges={['top']} onLayout={keyboard.onLayout}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: keyboard.bottom + 24 }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>¡Bienvenido a Howl! 🐺</Text>
         <Text style={styles.subtitle}>Cuéntanos quién eres.</Text>
 

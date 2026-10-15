@@ -35,7 +35,7 @@ npx expo start
 
 ## Configurar Supabase (una sola vez)
 
-1. En supabase.com abre tu proyecto, entra a **SQL Editor**, dale **New query**, pega todo el archivo `supabase/schema.sql` y dale **Run**.
+1. En supabase.com abre tu proyecto, entra a **SQL Editor**, dale **New query**, pega todo el archivo `supabase/schema.sql` y dale **Run**. Después haz lo mismo con `supabase/paso4-mensajes-notificaciones.sql` (chat grupal y notificaciones).
 2. Entra a **Authentication → Sign In / Providers → Email** y desactiva **Confirm email**. Dale **Save**.
 3. La URL y la llave del proyecto van en `src/config.ts`.
 
@@ -51,7 +51,13 @@ src/
   context/PostsContext.tsx    Publicaciones y acciones: corazón, votar, responder, publicar
   screens/FeedScreen.tsx      Feed principal con filtros
   screens/MarketScreen.tsx    Mercado en cuadrícula
-  screens/ChatsScreen.tsx     Grupos por carrera
+  screens/ChatsScreen.tsx     Lista de chats: solo el grupo de tu carrera
+  screens/ChatRoomScreen.tsx  Conversación del grupo, estilo WhatsApp
+  screens/NotificationsScreen.tsx  Likes, respuestas, votos y asistentes
+  context/ChatContext.tsx     Unirse, mensajes en tiempo real y no leídos
+  context/NotificationsContext.tsx  Notificaciones en tiempo real
+  context/BannerContext.tsx   Avisos que bajan desde arriba
+  hooks/useKeyboardInset.ts   Deja la barra de escribir justo encima del teclado
   screens/ProfileScreen.tsx   Tu perfil y tus publicaciones
   screens/ThreadScreen.tsx    Hilo de respuestas de una publicación
   screens/ComposerScreen.tsx  Formulario para publicar (cambia según el tipo)
@@ -63,14 +69,16 @@ src/
   lib/supabase.ts             Conexión con la base de datos y subida de fotos
   config.ts                   Datos de Supabase y lista de carreras
 supabase/schema.sql           Tablas y reglas de seguridad de la base de datos
+supabase/paso4-mensajes-notificaciones.sql  Chat por carrera y notificaciones
   types.ts, theme.ts          Tipos de datos y colores
 ```
+
+Para compartir la app sin tu PC (APK para Android y actualizaciones para iPhone) sigue [PUBLICAR.md](PUBLICAR.md).
 
 ## Lo que sigue
 
 - [x] Paso 1: proyecto inicial con el Feed de ejemplo
 - [x] Paso 2: Feed estilo Instagram, botón +, corazón y respuestas en hilo
 - [x] Paso 3: inicio de sesión con correo y contraseña, y publicaciones guardadas (Supabase)
-- [ ] Paso 4: publicar desde la app
-- [ ] Paso 5: chats por carrera en tiempo real
-- [ ] Paso 6: notificaciones, reportes y moderación
+- [x] Paso 4: chat grupal por carrera en tiempo real y notificaciones dentro de la app
+- [ ] Paso 5: notificaciones con la app cerrada (push), reportes y moderación
