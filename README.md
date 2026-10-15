@@ -36,22 +36,28 @@ npx expo start
 ## Cómo está organizado el código
 
 ```
-App.tsx                     Punto de entrada: abre siempre el Feed
+App.tsx                       Punto de entrada: abre siempre en la pestaña Inicio
 src/
-  screens/FeedScreen.tsx    Pantalla principal (Feed) con el ícono de chats
-  screens/ChatsScreen.tsx   Lista de grupos por carrera
-  components/PostCard.tsx   Diseño de cada tipo de publicación
-  data/posts.ts             Publicaciones de ejemplo (luego vendrán de la base de datos)
-  types.ts                  Qué datos tiene cada tipo de publicación
-  theme.ts                  Colores de la app
+  navigation.tsx              Barra de abajo (Inicio, Mercado, +, Mensajes, Perfil)
+  navigationTypes.ts          Nombres de pantallas y qué datos reciben
+  context/PostsContext.tsx    Publicaciones y acciones: corazón, votar, responder, publicar
+  screens/FeedScreen.tsx      Feed principal con filtros
+  screens/MarketScreen.tsx    Mercado en cuadrícula
+  screens/ChatsScreen.tsx     Grupos por carrera
+  screens/ProfileScreen.tsx   Tu perfil y tus publicaciones
+  screens/ThreadScreen.tsx    Hilo de respuestas de una publicación
+  screens/ComposerScreen.tsx  Formulario para publicar (cambia según el tipo)
+  components/PostCard.tsx     Diseño de cada tipo de publicación
+  components/CreateSheet.tsx  Menú que sale al tocar el +
+  data/currentUser.ts         Tu nombre y carrera (cámbialos aquí)
+  data/posts.ts               Publicaciones de ejemplo
+  types.ts, theme.ts          Tipos de datos y colores
 ```
-
-Tipos de publicación que ya se ven en el Feed: mensaje (estilo tweet), encuesta con incisos, producto (foto, precio, nombre en negrita y descripción), evento y foto.
 
 ## Lo que sigue
 
 - [x] Paso 1: proyecto inicial con el Feed de ejemplo
-- [ ] Paso 2: pulir el diseño del Feed
+- [x] Paso 2: Feed estilo Instagram, botón +, corazón y respuestas en hilo
 - [ ] Paso 3: inicio de sesión con correo institucional (Supabase)
 - [ ] Paso 4: publicar desde la app
 - [ ] Paso 5: chats por carrera en tiempo real

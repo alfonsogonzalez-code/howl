@@ -1,24 +1,25 @@
-import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { FeedScreen } from './src/screens/FeedScreen';
-import { ChatsScreen } from './src/screens/ChatsScreen';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PostsProvider } from './src/context/PostsContext';
+import { RootNavigator } from './src/navigation';
 import { colors } from './src/theme';
 
-export default function App() {
-  // La app siempre abre en el Feed. Más adelante usaremos Expo Router para la navegación.
-  const [screen, setScreen] = useState<'feed' | 'chats'>('feed');
+const theme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: colors.background, primary: colors.primary },
+};
 
+export default function App() {
+  // La app siempre abre en la pestaña Inicio (el Feed).
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
-        {screen === 'feed' ? (
-          <FeedScreen onOpenChats={() => setScreen('chats')} />
-        ) : (
-          <ChatsScreen onBack={() => setScreen('feed')} />
-        )}
-        <StatusBar style="dark" />
-      </SafeAreaView>
+      <PostsProvider>
+        <NavigationContainer theme={theme}>
+          <RootNavigator />
+        </NavigationContainer>
+      </PostsProvider>
+      <StatusBar style="dark" />
     </SafeAreaProvider>
   );
 }
