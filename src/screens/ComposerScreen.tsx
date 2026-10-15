@@ -99,7 +99,8 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
       return;
     }
     addPost(draft);
-    navigation.navigate('Tabs', { screen: 'Inicio' });
+    // Regresa al Feed cerrando este formulario (no abre otra pantalla encima)
+    navigation.popTo('Tabs', { screen: 'Inicio' });
   };
 
   const info = postTypeInfo[type];

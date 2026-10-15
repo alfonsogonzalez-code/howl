@@ -11,15 +11,23 @@ export function CreateSheet({
   visible,
   onClose,
   onSelect,
+  onDismiss,
 }: {
   visible: boolean;
   onClose: () => void;
   onSelect: (type: PostType) => void;
+  onDismiss?: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      onDismiss={onDismiss}
+    >
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.handle} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -29,8 +29,18 @@ function Tabs() {
   const navigation = useRootNavigation();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const openComposer = (type: PostType) => {
+  // Tipo elegido en el menú; se abre el formulario cuando el menú termina de cerrarse
+  const [pendingType, setPendingType] = useState<PostType | null>(null);
+
+  const chooseType = (type: PostType) => {
+    setPendingType(type);
     setSheetOpen(false);
+    if (Platform.OS !== 'ios') openComposer(type); // en Android no hay onDismiss
+  };
+
+  const openComposer = (type: PostType | null) => {
+    if (!type) return;
+    setPendingType(null);
     navigation.navigate('Composer', { type });
   };
 
@@ -69,7 +79,12 @@ function Tabs() {
         <Tab.Screen name="Mensajes" component={ChatsScreen} />
         <Tab.Screen name="Perfil" component={ProfileScreen} />
       </Tab.Navigator>
-      <CreateSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} onSelect={openComposer} />
+      <CreateSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onSelect={chooseType}
+        onDismiss={() => openComposer(pendingType)}
+      />
     </View>
   );
 }
