@@ -116,7 +116,13 @@ export function ChatRoomScreen({ navigation }: RootScreenProps<'ChatRoom'>) {
         )}
         <View style={[styles.messageRow, mine && styles.mineRow, { marginTop: firstOfGroup ? 10 : 2 }]}>
           {!mine && (
-            <View style={styles.avatarSlot}>{lastOfGroup && <Avatar author={item.author} size={28} />}</View>
+            <Pressable
+              style={styles.avatarSlot}
+              disabled={!lastOfGroup}
+              onPress={() => navigation.navigate('Profile', { userId: item.author.id })}
+            >
+              {lastOfGroup && <Avatar author={item.author} size={28} />}
+            </Pressable>
           )}
           <Pressable
             onLongPress={mine && !item.pending ? () => confirmDelete(item) : undefined}
@@ -156,7 +162,7 @@ export function ChatRoomScreen({ navigation }: RootScreenProps<'ChatRoom'>) {
   };
 
   return (
-    <View style={styles.container} onLayout={keyboard.onLayout}>
+    <View style={styles.container} ref={keyboard.ref} onLayout={keyboard.onLayout}>
       {messages.length === 0 ? (
         <View style={styles.empty}>
           <GroupAvatar career={career} size={80} />

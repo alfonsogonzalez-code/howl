@@ -1,18 +1,20 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TextInputProps,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { CropBox, CropOffset, cropLayout } from '../components/CropBox';
+import { clampRatio, cropImage, LocalImage, LocalVideo, loadImage, loadVideo, pickMedia } from '../lib/media';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { usePosts } from '../context/PostsContext';
 import { RootScreenProps } from '../navigationTypes';
@@ -20,6 +22,16 @@ import { PostDraft } from '../types';
 import { colors, postTypeInfo } from '../theme';
 
 const MAX_TEXT = 280; // como Twitter
+
+// Formas de recorte, como en Instagram. "Original" deja la foto completa.
+type Shape = 'original' | number;
+const SHAPES: { key: Shape; label: string }[] = [
+  { key: 'original', label: 'Original' },
+  { key: 1, label: '1:1' },
+  { key: 4 / 5, label: '4:5' },
+  { key: 16 / 9, label: '16:9' },
+  { key: 9 / 16, label: '9:16' },
+];
 
 // Formulario para crear una publicación. Los campos cambian según el tipo elegido.
 export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'>) {
@@ -29,7 +41,13 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
 
   // Todos los campos posibles; cada tipo usa solo los suyos
   const [text, setText] = useState('');
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [image, setImage] = useState<LocalImage | null>(null);
+  const [video, setVideo] = useState<LocalVideo | null>(null);
+  const [shape, setShape] = useState<Shape>(type === 'product' ? 1 : 'original');
+  const [offset, setOffset] = useState<CropOffset>({ x: 0.5, y: 0.5 });
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [name, setName] = useState('');
@@ -39,22 +57,65 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
   const [time, setTime] = useState('');
   const [place, setPlace] = useState('');
 
+  // Elegir foto (o video, si es publicación de foto o video)
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!result.canceled) setImageUrl(result.assets[0].uri);
+    const asset = await pickMedia(type === 'photo');
+    if (!asset) return;
+    setLoadingMedia(true);
+    try {
+      if (asset.type === 'video') {
+        setVideo(await loadVideo(asset));
+        setImage(null);
+      } else {
+        setImage(await loadImage(asset.uri));
+        setVideo(null);
+        setOffset({ x: 0.5, y: 0.5 });
+      }
+    } catch (e) {
+      Alert.alert('No se pudo usar', (e as Error).message);
+    } finally {
+      setLoadingMedia(false);
+    }
+  };
+
+  // En "Foto o video" la galería se abre sola al entrar, como en Instagram
+  useEffect(() => {
+    if (type === 'photo') pickImage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Forma del recorte y tamaño del recuadro en pantalla
+  const ratio = image ? (shape === 'original' ? clampRatio(image.width / image.height) : shape) : 1;
+  const maxHeight = 460;
+  const boxWidth = Math.min(screenWidth - 32, maxHeight * ratio);
+
+  // Recorta la foto como quedó en el recuadro
+  const finalImage = async () => {
+    if (!image) return null;
+    const { rect } = cropLayout(image, ratio, boxWidth, offset);
+    const cropped = await cropImage(image, rect);
+    return { imageUrl: cropped.uri, aspectRatio: cropped.width / cropped.height };
   };
 
   // Revisa que estén los campos obligatorios y arma la publicación
-  const buildDraft = (): PostDraft | string => {
+  const buildDraft = async (): Promise<PostDraft | string> => {
     switch (type) {
       case 'text':
         return text.trim() ? { type, text: text.trim() } : 'Escribe tu mensaje.';
-      case 'photo':
-        return imageUrl ? { type, imageUrl, caption: text.trim() } : 'Elige una foto.';
+      case 'photo': {
+        if (video) {
+          return {
+            type,
+            mediaType: 'video',
+            imageUrl: video.uri,
+            thumbUrl: video.thumbUri,
+            aspectRatio: video.width / video.height,
+            caption: text.trim(),
+          };
+        }
+        const photo = await finalImage();
+        return photo ? { type, mediaType: 'image', ...photo, caption: text.trim() } : 'Elige una foto o un video.';
+      }
       case 'poll': {
         const filled = options.map((o) => o.trim()).filter(Boolean);
         if (!question.trim()) return 'Escribe la pregunta.';
@@ -68,10 +129,12 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
       }
       case 'product': {
         const value = Number(price.replace(/[^0-9.]/g, ''));
-        if (!imageUrl) return 'Agrega una foto del producto.';
+        if (!image) return 'Agrega una foto del producto.';
         if (!name.trim()) return 'Escribe el nombre del producto.';
         if (!value) return 'Escribe el precio.';
-        return { type, imageUrl, name: name.trim(), price: value, description: text.trim() };
+        const photo = await finalImage();
+        if (!photo) return 'Agrega una foto del producto.';
+        return { type, ...photo, name: name.trim(), price: value, description: text.trim() };
       }
       case 'event':
         if (!title.trim() || !date.trim() || !time.trim() || !place.trim())
@@ -92,17 +155,18 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
   const [publishing, setPublishing] = useState(false);
 
   const publish = async () => {
-    const draft = buildDraft();
-    if (typeof draft === 'string') {
-      Alert.alert('Falta algo', draft);
-      return;
-    }
     setPublishing(true);
     try {
+      const draft = await buildDraft();
+      if (typeof draft === 'string') {
+        setPublishing(false);
+        Alert.alert('Falta algo', draft);
+        return;
+      }
       await addPost(draft);
-    } catch {
+    } catch (e) {
       setPublishing(false);
-      Alert.alert('No se pudo publicar', 'Revisa tu conexión e inténtalo de nuevo.');
+      Alert.alert('No se pudo publicar', `Revisa tu conexión e inténtalo de nuevo.\n(${(e as Error).message})`);
       return;
     }
     // Regresa al Feed cerrando este formulario (no abre otra pantalla encima)
@@ -112,11 +176,12 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
   const info = postTypeInfo[type];
 
   return (
-    <View style={styles.container} onLayout={keyboard.onLayout}>
+    <View style={styles.container} ref={keyboard.ref} onLayout={keyboard.onLayout}>
       <ScrollView
         contentContainerStyle={styles.form}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        scrollEnabled={!dragging}
       >
         {type === 'text' && (
           <>
@@ -136,21 +201,69 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
           </>
         )}
 
-        {(type === 'photo' || type === 'product') && (
-          <Pressable style={styles.imagePicker} onPress={pickImage}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.preview} />
-            ) : (
-              <>
-                <Ionicons name="camera-outline" size={40} color={colors.muted} />
-                <Text style={styles.muted}>Toca para elegir una foto</Text>
-              </>
-            )}
-          </Pressable>
-        )}
+        {(type === 'photo' || type === 'product') &&
+          (loadingMedia ? (
+            <View style={styles.imagePicker}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : image ? (
+            <View style={{ gap: 12 }}>
+              <CropBox
+                image={image}
+                ratio={ratio}
+                width={boxWidth}
+                offset={offset}
+                onChange={setOffset}
+                onDragging={setDragging}
+              />
+              <Text style={styles.hint}>Arrastra la foto para acomodarla</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shapes}>
+                {SHAPES.map((s) => (
+                  <Pressable
+                    key={s.label}
+                    style={[styles.shape, shape === s.key && styles.shapeActive]}
+                    onPress={() => {
+                      setShape(s.key);
+                      setOffset({ x: 0.5, y: 0.5 });
+                    }}
+                  >
+                    <ShapeIcon shape={s.key} image={image} active={shape === s.key} />
+                    <Text style={[styles.shapeText, shape === s.key && { color: '#fff' }]}>{s.label}</Text>
+                  </Pressable>
+                ))}
+                <Pressable style={styles.shape} onPress={pickImage}>
+                  <Ionicons name="swap-horizontal" size={16} color={colors.text} />
+                  <Text style={styles.shapeText}>Cambiar</Text>
+                </Pressable>
+              </ScrollView>
+            </View>
+          ) : video ? (
+            <View style={{ gap: 12 }}>
+              <VideoPreview video={video} width={Math.min(screenWidth - 32, maxHeight * clampRatio(video.width / video.height))} />
+              <Pressable style={[styles.shape, { alignSelf: 'center' }]} onPress={pickImage}>
+                <Ionicons name="swap-horizontal" size={16} color={colors.text} />
+                <Text style={styles.shapeText}>Cambiar video</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={styles.imagePicker} onPress={pickImage}>
+              <Ionicons name={type === 'photo' ? 'images-outline' : 'camera-outline'} size={44} color={colors.muted} />
+              <Text style={styles.muted}>
+                {type === 'photo' ? 'Toca para elegir una foto o un video' : 'Toca para elegir una foto'}
+              </Text>
+            </Pressable>
+          ))}
 
         {type === 'photo' && (
-          <Field label="Descripción (opcional)" value={text} onChangeText={setText} placeholder="Escribe algo sobre la foto" multiline />
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Escribe una descripción…"
+            placeholderTextColor={colors.muted}
+            style={styles.captionInput}
+            maxLength={2200}
+            multiline
+          />
         )}
 
         {type === 'product' && (
@@ -207,19 +320,45 @@ export function ComposerScreen({ route, navigation }: RootScreenProps<'Composer'
       {/* El botón de publicar queda justo encima del teclado */}
       <View style={[styles.footer, { paddingBottom: keyboard.bottom + 12 }]}>
         <Pressable
-          style={[styles.publish, { backgroundColor: info.color, opacity: publishing ? 0.6 : 1 }]}
+          style={[styles.publish, { opacity: publishing ? 0.6 : 1 }]}
           onPress={publish}
           disabled={publishing}
         >
           {publishing ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.publishText}>Publicar {info.label.toLowerCase()}</Text>
+            <Text style={styles.publishText}>{type === 'photo' ? 'Compartir' : `Publicar ${info.label.toLowerCase()}`}</Text>
           )}
         </Pressable>
       </View>
     </View>
   );
+}
+
+// Video elegido: se reproduce en silencio para que veas cuál es
+function VideoPreview({ video, width }: { video: LocalVideo; width: number }) {
+  const player = useVideoPlayer(video.uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+  return (
+    <View style={[styles.videoBox, { width, aspectRatio: clampRatio(video.width / video.height) }]}>
+      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
+      <View style={styles.videoBadge}>
+        <Ionicons name="videocam" size={13} color="#fff" />
+        <Text style={styles.videoBadgeText}>{Math.round(video.duration)} s</Text>
+      </View>
+    </View>
+  );
+}
+
+// Dibujito de la forma del recorte (un rectangulito)
+function ShapeIcon({ shape, image, active }: { shape: Shape; image: LocalImage; active: boolean }) {
+  const r = shape === 'original' ? clampRatio(image.width / image.height) : shape;
+  const w = r >= 1 ? 16 : 16 * r;
+  const h = r >= 1 ? 16 / r : 16;
+  return <View style={{ width: w, height: h, borderWidth: 1.5, borderRadius: 2, borderColor: active ? '#fff' : colors.text }} />;
 }
 
 function Field({ label, ...props }: TextInputProps & { label: string }) {
@@ -276,6 +415,34 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
-  publish: { borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  publish: { borderRadius: 10, paddingVertical: 14, alignItems: 'center', backgroundColor: colors.primary },
+  hint: { color: colors.muted, fontSize: 12, textAlign: 'center' },
+  shapes: { gap: 8, paddingHorizontal: 2 },
+  shape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+  },
+  shapeActive: { backgroundColor: colors.text },
+  shapeText: { fontWeight: '600', color: colors.text, fontSize: 13 },
+  captionInput: { fontSize: 16, color: colors.text, minHeight: 80, textAlignVertical: 'top' },
+  videoBox: { alignSelf: 'center', backgroundColor: '#000', overflow: 'hidden' },
+  videoBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  videoBadgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   publishText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

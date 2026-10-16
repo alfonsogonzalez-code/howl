@@ -1,6 +1,9 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { toAuthor } from '../lib/profiles';
+import { cropImage, loadImage, uploadFile } from '../lib/media';
+import { forgetPushToken } from '../lib/push';
 import { Author } from '../types';
 
 // Maneja el inicio de sesión y el perfil de quien usa la app.
@@ -12,7 +15,18 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   saveProfile: (name: string, career: string) => Promise<void>;
+  updateProfile: (changes: ProfileChanges) => Promise<void>;
+  setNote: (note: string | null) => Promise<void>;
   signOut: () => Promise<void>;
+};
+
+// Lo que se puede cambiar en "Editar perfil".
+// avatarUri: foto nueva del celular, o null para quitar la foto.
+export type ProfileChanges = {
+  name?: string;
+  career?: string;
+  bio?: string;
+  avatarUri?: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -26,9 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-    setProfile(
-      data ? { id: data.id, name: data.name, career: data.career, avatarColor: data.avatar_color } : null,
-    );
+    setProfile(data ? toAuthor(data) : null);
   };
 
   useEffect(() => {
@@ -78,7 +90,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await loadProfile(session.user.id);
     },
 
+    updateProfile: async (changes) => {
+      if (!session) return;
+      const row: Record<string, unknown> = {};
+      if (changes.name !== undefined) row.name = changes.name.trim();
+      if (changes.career !== undefined) row.career = changes.career;
+      if (changes.bio !== undefined) row.bio = changes.bio.trim();
+      if (changes.avatarUri === null) row.avatar_url = null;
+      if (changes.avatarUri) {
+        // La foto de perfil se recorta cuadrada y chiquita para que cargue rápido
+        const image = await loadImage(changes.avatarUri);
+        const side = Math.min(image.width, image.height);
+        const square = await cropImage(
+          image,
+          { originX: (image.width - side) / 2, originY: (image.height - side) / 2, width: side, height: side },
+          480,
+        );
+        row.avatar_url = await uploadFile(session.user.id, square.uri, 'image');
+      }
+      const { error } = await supabase.from('profiles').update(row).eq('id', session.user.id);
+      if (error) throw error;
+      await loadProfile(session.user.id);
+    },
+
+    setNote: async (note) => {
+      if (!session) return;
+      const text = note?.trim() || null;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ note: text, note_at: text ? new Date().toISOString() : null })
+        .eq('id', session.user.id);
+      if (error) throw error;
+      await loadProfile(session.user.id);
+    },
+
     signOut: async () => {
+      // Primero este celular deja de recibir tus avisos
+      await forgetPushToken().catch(() => {});
       await supabase.auth.signOut();
     },
   };

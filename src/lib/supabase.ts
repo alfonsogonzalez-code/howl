@@ -20,15 +20,3 @@ AppState.addEventListener('change', (state) => {
   if (state === 'active') supabase.auth.startAutoRefresh();
   else supabase.auth.stopAutoRefresh();
 });
-
-// Sube una foto del teléfono y regresa su dirección pública
-export async function uploadImage(userId: string, uri: string): Promise<string> {
-  const ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().replace('jpeg', 'jpg');
-  const path = `${userId}/${Date.now()}.${ext}`;
-  const body = await fetch(uri).then((res) => res.arrayBuffer());
-  const { error } = await supabase.storage
-    .from('images')
-    .upload(path, body, { contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
-  if (error) throw error;
-  return supabase.storage.from('images').getPublicUrl(path).data.publicUrl;
-}

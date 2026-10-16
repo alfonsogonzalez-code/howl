@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { ProfileRow, toAuthor } from '../lib/profiles';
 import { navigationRef } from '../navigationRef';
@@ -13,6 +14,7 @@ type NotificationsContextValue = {
   notifications: AppNotification[];
   unread: number;
   loading: boolean;
+  error: string | null;
   refresh: () => Promise<void>;
   markAllRead: () => void;
 };
@@ -40,7 +42,7 @@ type NotificationRow = {
 function postPreview(post: NotificationRow['post']): string {
   if (!post) return '';
   const d = post.data ?? {};
-  return d.text || d.caption || d.question || d.name || d.title || 'tu foto';
+  return d.text || d.caption || d.question || d.name || d.title || (d.mediaType === 'video' ? 'tu video' : 'tu foto');
 }
 
 function toNotification(row: NotificationRow): AppNotification {
@@ -50,7 +52,7 @@ function toNotification(row: NotificationRow): AppNotification {
     actor: toAuthor(row.actor),
     postId: row.post_id,
     postPreview: postPreview(row.post),
-    postImage: row.post?.data?.imageUrl ?? null,
+    postImage: row.post?.data?.thumbUrl ?? row.post?.data?.imageUrl ?? null,
     text: row.text,
     read: row.read,
     createdAt: new Date(row.created_at).getTime(),
@@ -78,21 +80,43 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const showBanner = useBanner();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Trae tu historial de notificaciones (se guarda en la base de datos,
+  // así que sigue ahí aunque cierres sesión o cambies de celular)
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase
+    const { data, error: loadError } = await supabase
       .from('notifications')
       .select(NOTIFICATION_QUERY)
+      .eq('user_id', me.id)
       .order('created_at', { ascending: false })
-      .limit(60);
-    if (!error) setNotifications((data as unknown as NotificationRow[]).map(toNotification));
+      .limit(100);
+    if (loadError) {
+      setError(loadError.message);
+    } else {
+      setError(null);
+      setNotifications(
+        (data as unknown as NotificationRow[])
+          .filter((row) => row.actor) // por si alguien borró su cuenta
+          .map(toNotification),
+      );
+    }
     setLoading(false);
-  }, []);
+  }, [me.id]);
+
+  // Al volver a la app se actualiza, por si llegaron avisos mientras estaba cerrada
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => sub.remove();
+  }, [refresh]);
 
   useEffect(() => {
     refresh();
     const channel = supabase
-      .channel('howl-notifications')
+      // Nombre único: si cierras sesión y vuelves a entrar no choca con el anterior
+      .channel(`howl-notifications-${me.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${me.id}` },
@@ -119,7 +143,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       )
       // Si se borra (por ejemplo, alguien quitó su like) se vuelve a cargar la lista
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'notifications' }, () => refresh())
-      .subscribe();
+      // Al reconectarse (por ejemplo, después de estar sin internet) vuelve a cargar
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refresh();
+      });
     return () => {
       supabase.removeChannel(channel);
     };
@@ -129,6 +156,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     notifications,
     unread: notifications.filter((n) => !n.read).length,
     loading,
+    error,
     refresh,
     markAllRead: () => {
       if (!notifications.some((n) => !n.read)) return;

@@ -96,3 +96,35 @@ git add .
 git commit -m "Qué cambiaste"
 git push
 ```
+
+---
+
+## Parte 4: Avisos al celular en Android (Firebase, una sola vez)
+
+En iPhone (Expo Go) los avisos funcionan sin hacer nada. Para que el **APK de Android** los reciba con la app cerrada, Google pide conectar la app con **Firebase** (es gratis). Esto se hace una sola vez y **antes** de crear el APK.
+
+**A. Crear el proyecto en Firebase**
+1. Entra a https://console.firebase.google.com con tu cuenta de Google.
+2. Toca **Crear un proyecto** (o *Agregar proyecto*), ponle de nombre `howl` y dale **Continuar**. Google Analytics lo puedes desactivar. Al final dale **Crear proyecto**.
+3. Ya adentro, toca el ícono de **Android** (dice *Agregar app*).
+4. En **Nombre del paquete de Android** escribe exactamente: `com.upvt.howl` y toca **Registrar app**.
+5. Toca **Descargar google-services.json** y guarda ese archivo en la carpeta del proyecto, junto a `app.json`:
+   `C:\Users\ponch\Downloads\howl\google-services.json`
+6. Lo demás del asistente (agregar el SDK de Firebase) **no se hace**: dale **Siguiente** hasta **Ir a la consola**.
+
+`google-services.json` no es secreto: sí se sube a GitHub (si GitHub te manda un correo de "secret detected" por ese archivo, es normal).
+
+**B. Darle a Expo la llave para mandar avisos**
+1. En Firebase toca el engrane ⚙️ → **Configuración del proyecto** → pestaña **Cuentas de servicio**.
+2. Toca **Generar nueva clave privada** → **Generar clave**. Se descarga un archivo `.json` que dice `firebase-adminsdk` en el nombre.
+   ⚠️ **Este archivo SÍ es secreto.** Guárdalo en Documentos, **no** en la carpeta del proyecto y **nunca** lo subas a GitHub.
+3. Súbelo a Expo desde la terminal, dentro de la carpeta del proyecto:
+   ```
+   npx eas-cli credentials -p android
+   ```
+   - Si pregunta el perfil, elige **preview**.
+   - Elige **Google Service Account**.
+   - Elige **Manage your Google Service Account Key for Push Notifications (FCM V1)**.
+   - Elige **Set up a Google Service Account Key for Push Notifications (FCM V1)** y luego **Upload a new service account key**.
+   - Cuando pida la ruta, escribe dónde quedó el archivo, por ejemplo `C:\Users\ponch\Documents\howl-firebase-adminsdk-xxxxx.json`.
+4. Listo. Ahora sí crea el APK (Parte 1). Los APK viejos no reciben avisos; hay que instalar el nuevo.

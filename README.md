@@ -35,9 +35,10 @@ npx expo start
 
 ## Configurar Supabase (una sola vez)
 
-1. En supabase.com abre tu proyecto, entra a **SQL Editor**, dale **New query**, pega todo el archivo `supabase/schema.sql` y dale **Run**. Después haz lo mismo con `supabase/paso4-mensajes-notificaciones.sql` (chat grupal y notificaciones).
+1. En supabase.com abre tu proyecto, entra a **SQL Editor**, dale **New query**, pega todo el archivo `supabase/schema.sql` y dale **Run**. Después haz lo mismo con `supabase/paso4-mensajes-notificaciones.sql` (chat grupal y notificaciones) y con `supabase/paso5-version-final.sql` (foto de perfil, notas, guardados y avisos al celular).
 2. Entra a **Authentication → Sign In / Providers → Email** y desactiva **Confirm email**. Dale **Save**.
 3. La URL y la llave del proyecto van en `src/config.ts`.
+4. Para que los Android reciban avisos con la app cerrada hace falta Firebase (`google-services.json` en la raíz del proyecto y la llave de FCM subida a Expo). Los pasos están en [PUBLICAR.md](PUBLICAR.md).
 
 Se entra con correo y contraseña. Más adelante se puede agregar verificación por correo conectando un servicio de correo (SMTP).
 
@@ -45,11 +46,22 @@ Se entra con correo y contraseña. Más adelante se puede agregar verificación 
 
 ```
 App.tsx                       Punto de entrada: abre siempre en la pestaña Inicio
+app.config.js                 Usa google-services.json (Firebase) si existe
 src/
-  navigation.tsx              Barra de abajo (Inicio, Mercado, +, Mensajes, Perfil)
+  navigation.tsx              Barra de abajo (Inicio, Multimedia, +, Mercado, Perfil)
   navigationTypes.ts          Nombres de pantallas y qué datos reciben
-  context/PostsContext.tsx    Publicaciones y acciones: corazón, votar, responder, publicar
-  screens/FeedScreen.tsx      Feed principal con filtros
+  context/PostsContext.tsx    Publicaciones y acciones: corazón, guardar, votar, comentar, publicar
+  screens/FeedScreen.tsx      Feed principal: notas, filtros, notificaciones y mensajes arriba
+  screens/MediaScreen.tsx     Multimedia: fotos y videos a pantalla completa (como Reels)
+  screens/ProfileScreen.tsx   Perfiles estilo Instagram (el tuyo y el de los demás)
+  screens/EditProfileScreen.tsx  Cambiar foto, nombre, descripción y carrera
+  screens/NoteScreen.tsx      Escribir tu nota (dura 24 horas)
+  components/NotesRow.tsx     Fila de notas arriba del Feed
+  components/CropBox.tsx      Recortar fotos en cualquier forma
+  components/GridTile.tsx     Cuadritos de la cuadrícula del perfil
+  context/ActionSheetContext.tsx  Menú de opciones que sale desde abajo
+  lib/media.ts                Elegir, recortar y subir fotos y videos
+  lib/push.ts                 Avisos al celular
   screens/MarketScreen.tsx    Mercado en cuadrícula
   screens/ChatsScreen.tsx     Lista de chats: solo el grupo de tu carrera
   screens/ChatRoomScreen.tsx  Conversación del grupo, estilo WhatsApp
@@ -58,7 +70,6 @@ src/
   context/NotificationsContext.tsx  Notificaciones en tiempo real
   context/BannerContext.tsx   Avisos que bajan desde arriba
   hooks/useKeyboardInset.ts   Deja la barra de escribir justo encima del teclado
-  screens/ProfileScreen.tsx   Tu perfil y tus publicaciones
   screens/ThreadScreen.tsx    Hilo de respuestas de una publicación
   screens/ComposerScreen.tsx  Formulario para publicar (cambia según el tipo)
   components/PostCard.tsx     Diseño de cada tipo de publicación
@@ -66,10 +77,11 @@ src/
   context/AuthContext.tsx     Inicio de sesión y perfil
   screens/LoginScreen.tsx     Entrar o crear cuenta con correo y contraseña
   screens/ProfileSetupScreen.tsx  Nombre y carrera la primera vez
-  lib/supabase.ts             Conexión con la base de datos y subida de fotos
+  lib/supabase.ts             Conexión con la base de datos
   config.ts                   Datos de Supabase y lista de carreras
 supabase/schema.sql           Tablas y reglas de seguridad de la base de datos
 supabase/paso4-mensajes-notificaciones.sql  Chat por carrera y notificaciones
+supabase/paso5-version-final.sql  Perfil con foto y nota, guardados y avisos al celular
   types.ts, theme.ts          Tipos de datos y colores
 ```
 
@@ -81,4 +93,5 @@ Para compartir la app sin tu PC (APK para Android y actualizaciones para iPhone)
 - [x] Paso 2: Feed estilo Instagram, botón +, corazón y respuestas en hilo
 - [x] Paso 3: inicio de sesión con correo y contraseña, y publicaciones guardadas (Supabase)
 - [x] Paso 4: chat grupal por carrera en tiempo real y notificaciones dentro de la app
-- [ ] Paso 5: notificaciones con la app cerrada (push), reportes y moderación
+- [x] Paso 5 (versión final): estilo Instagram, perfiles con foto y nota, Multimedia con videos, recortes libres, guardados y avisos al celular
+- [ ] Lo que sigue: reportes y moderación

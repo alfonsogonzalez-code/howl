@@ -21,13 +21,20 @@ const typeIcon: Record<NotificationType, { name: keyof typeof Ionicons.glyphMap;
 
 // Notificaciones, como el corazón de Instagram
 export function NotificationsScreen({ navigation }: RootScreenProps<'Notifications'>) {
-  const { notifications, loading, refresh, markAllRead } = useNotifications();
+  const { notifications, loading, error, refresh, markAllRead } = useNotifications();
   const { posts } = usePosts();
   const [refreshing, setRefreshing] = useState(false);
 
   // Las que eran nuevas al abrir se quedan resaltadas mientras estás aquí
   const newIds = useRef<Set<string> | null>(null);
   if (newIds.current === null) newIds.current = new Set(notifications.filter((n) => !n.read).map((n) => n.id));
+
+  // Cada vez que entras se vuelve a traer tu historial completo
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -57,6 +64,15 @@ export function NotificationsScreen({ navigation }: RootScreenProps<'Notificatio
       ListEmptyComponent={
         loading ? (
           <ActivityIndicator style={{ padding: 40 }} color={colors.primary} />
+        ) : error ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={56} color={colors.border} />
+            <Text style={styles.emptyTitle}>No se pudieron cargar</Text>
+            <Text style={styles.emptyText}>{error}</Text>
+            <Pressable onPress={onRefresh} style={styles.retry}>
+              <Text style={styles.retryText}>Reintentar</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={styles.empty}>
             <Ionicons name="notifications-outline" size={56} color={colors.border} />
@@ -74,12 +90,12 @@ export function NotificationsScreen({ navigation }: RootScreenProps<'Notificatio
             style={[styles.row, newIds.current?.has(item.id) && styles.unread]}
             onPress={() => open(item.postId)}
           >
-            <View>
+            <Pressable onPress={() => navigation.navigate('Profile', { userId: item.actor.id })}>
               <Avatar author={item.actor} size={46} />
               <View style={[styles.typeIcon, { backgroundColor: icon.color }]}>
                 <Ionicons name={icon.name} size={11} color="#fff" />
               </View>
-            </View>
+            </Pressable>
             <View style={{ flex: 1 }}>
               <Text style={styles.text} numberOfLines={3}>
                 <Text style={styles.bold}>{item.actor.name} </Text>
@@ -123,4 +139,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', padding: 40, gap: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
   emptyText: { color: colors.muted, textAlign: 'center', lineHeight: 20 },
+  retry: { marginTop: 8, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  retryText: { color: '#fff', fontWeight: '700' },
 });

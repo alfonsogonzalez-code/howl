@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { supabase, uploadImage } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { uploadFile } from '../lib/media';
 import { ProfileRow, toAuthor } from '../lib/profiles';
 import { Post, PostDraft } from '../types';
 import { useCurrentUser } from './AuthContext';
@@ -15,6 +16,7 @@ type PostsContextValue = {
   addPost: (draft: PostDraft) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   toggleLike: (postId: string) => void;
+  toggleSave: (postId: string) => void;
   vote: (postId: string, optionId: string) => void;
   toggleGoing: (postId: string) => void;
   addReply: (postId: string, text: string) => Promise<void>;
@@ -30,6 +32,7 @@ const POST_QUERY = `
   id, type, data, created_at,
   author:profiles!posts_author_id_fkey(*),
   likes(user_id),
+  saves(user_id),
   poll_votes(user_id, option_id),
   event_attendees(user_id),
   replies(id, text, created_at, author:profiles!replies_author_id_fkey(*))
@@ -42,6 +45,7 @@ type PostRow = {
   created_at: string;
   author: ProfileRow;
   likes: { user_id: string }[];
+  saves?: { user_id: string }[];
   poll_votes: { user_id: string; option_id: string }[];
   event_attendees: { user_id: string }[];
   replies: { id: string; text: string; created_at: string; author: ProfileRow }[];
@@ -55,6 +59,8 @@ function toPost(row: PostRow, myId: string): Post {
     createdAt: new Date(row.created_at).getTime(),
     likes: row.likes.length,
     liked: row.likes.some((l) => l.user_id === myId),
+    // Solo puedes ver tus propios guardados, así que si viene alguno es tuyo
+    saved: (row.saves ?? []).length > 0,
     replies: row.replies
       .map((r) => ({
         id: r.id,
@@ -101,7 +107,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       .from('posts')
       .select(POST_QUERY)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) {
       setLoadError(error.message);
     } else {
@@ -120,7 +126,8 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(refresh, 400);
     };
-    const channel = supabase.channel('howl-feed');
+    // Nombre único: si cierras sesión y vuelves a entrar no choca con el anterior
+    const channel = supabase.channel(`howl-feed-${me.id}-${Date.now()}`);
     for (const table of ['posts', 'likes', 'poll_votes', 'event_attendees', 'replies']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
     }
@@ -128,7 +135,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, [refresh, me.id]);
 
   // Cambia una publicación en pantalla al instante (antes de que responda el servidor)
   const updateLocal = (postId: string, change: (post: Post) => Post) =>
@@ -147,10 +154,13 @@ export function PostsProvider({ children }: { children: ReactNode }) {
     refresh,
 
     addPost: async (draft) => {
-      const { type, ...data } = draft as PostDraft & { imageUrl?: string };
-      // Las fotos se suben primero a la nube
-      if ('imageUrl' in data && data.imageUrl && !data.imageUrl.startsWith('http')) {
-        data.imageUrl = await uploadImage(me.id, data.imageUrl);
+      const { type, ...data } = draft as PostDraft & { imageUrl?: string; thumbUrl?: string; mediaType?: string };
+      // Las fotos y videos se suben primero a la nube
+      if (data.imageUrl && !data.imageUrl.startsWith('http')) {
+        data.imageUrl = await uploadFile(me.id, data.imageUrl, data.mediaType === 'video' ? 'video' : 'image');
+      }
+      if (data.thumbUrl && !data.thumbUrl.startsWith('http')) {
+        data.thumbUrl = await uploadFile(me.id, data.thumbUrl, 'image');
       }
       // Los votos y asistentes viven en sus propias tablas, no dentro de la publicación
       if (type === 'poll') {
@@ -180,6 +190,17 @@ export function PostsProvider({ children }: { children: ReactNode }) {
         post.liked
           ? supabase.from('likes').delete().match({ post_id: postId, user_id: me.id })
           : supabase.from('likes').insert({ post_id: postId }),
+      );
+    },
+
+    toggleSave: (postId) => {
+      const post = posts.find((p) => p.id === postId);
+      if (!post) return;
+      updateLocal(postId, (p) => ({ ...p, saved: !p.saved }));
+      check(
+        post.saved
+          ? supabase.from('saves').delete().match({ post_id: postId, user_id: me.id })
+          : supabase.from('saves').insert({ post_id: postId }),
       );
     },
 

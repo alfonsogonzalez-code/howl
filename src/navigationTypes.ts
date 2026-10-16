@@ -5,9 +5,9 @@ import { PostType } from './types';
 // Pestañas de la barra de abajo
 export type TabParamList = {
   Inicio: undefined;
-  Mercado: undefined;
+  Multimedia: undefined;
   Crear: undefined;
-  Mensajes: undefined;
+  Mercado: undefined;
   Perfil: undefined;
 };
 
@@ -17,7 +17,11 @@ export type RootStackParamList = {
   Thread: { postId: string; focusReply?: boolean };
   Composer: { type: PostType };
   ChatRoom: undefined;
+  Chats: undefined;
   Notifications: undefined;
+  Profile: { userId: string };
+  EditProfile: undefined;
+  Note: undefined;
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

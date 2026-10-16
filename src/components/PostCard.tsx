@@ -1,122 +1,188 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { EventPost, PhotoPost, PollPost, Post, ProductPost, TextPost } from '../types';
 import { usePosts } from '../context/PostsContext';
 import { useCurrentUser } from '../context/AuthContext';
+import { useActionSheet } from '../context/ActionSheetContext';
 import { useRootNavigation } from '../navigationTypes';
-import { colors, postTypeInfo } from '../theme';
+import { colors } from '../theme';
 import { splitDate, timeAgo } from '../utils/time';
 import { Avatar } from './Avatar';
+import { DoubleTap } from './DoubleTap';
 
 type Props = {
   post: Post;
   // En el Feed se muestran las últimas respuestas; dentro del hilo no
   inThread?: boolean;
   onReplyPress?: () => void;
+  // El video se reproduce solo cuando la publicación está en pantalla
+  active?: boolean;
 };
 
-// Una publicación estilo Instagram: autor, contenido, corazón, respuestas y compartir.
-export function PostCard({ post, inThread = false, onReplyPress }: Props) {
-  const navigation = useRootNavigation();
-  const { toggleLike, deletePost } = usePosts();
-  const me = useCurrentUser();
-  const isMine = post.author.id === me.id;
+// En el Feed las fotos se ven entre 3:4 (vertical) y 1.91:1 (horizontal), como en Instagram
+const feedRatio = (ratio: number | undefined, fallback: number) => Math.min(1.91, Math.max(0.75, ratio ?? fallback));
 
-  const confirmDelete = () =>
-    Alert.alert('Borrar publicación', 'Se borrará para todos. ¿Seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Borrar', style: 'destructive', onPress: () => deletePost(post.id) },
-    ]);
+// Una publicación estilo Instagram: autor, contenido, corazón, comentarios, compartir y guardar.
+export function PostCard({ post, inThread = false, onReplyPress, active = false }: Props) {
+  const navigation = useRootNavigation();
+  const { toggleLike, toggleSave } = usePosts();
+  const openMenu = usePostMenu(post);
 
   const openThread = () =>
     onReplyPress ? onReplyPress() : navigation.navigate('Thread', { postId: post.id, focusReply: true });
-
-  const share = () => Share.share({ message: `${post.author.name} en Howl: ${shareText(post)}` });
+  const openProfile = () => navigation.navigate('Profile', { userId: post.author.id });
 
   // Doble toque en la foto = corazón (si aún no lo tenía)
   const likeFromDoubleTap = () => {
     if (!post.liked) toggleLike(post.id);
   };
 
+  const caption = post.type === 'photo' ? post.caption : '';
+  const lastReply = post.replies[post.replies.length - 1];
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Avatar author={post.author} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.authorName}>{post.author.name}</Text>
-          <Text style={styles.meta}>
-            {post.author.career} · {timeAgo(post.createdAt)}
+        <Pressable onPress={openProfile} hitSlop={4}>
+          <Avatar author={post.author} size={34} ring={!!post.author.note} />
+        </Pressable>
+        <Pressable style={{ flex: 1 }} onPress={openProfile}>
+          <Text style={styles.authorName} numberOfLines={1}>
+            {post.author.name}
           </Text>
-        </View>
-        {post.type !== 'text' && <TypeTag type={post.type} />}
-        {isMine && (
-          <Pressable onPress={confirmDelete} hitSlop={10}>
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
-          </Pressable>
-        )}
+          <Text style={styles.meta} numberOfLines={1}>
+            {post.author.career}
+          </Text>
+        </Pressable>
+        <Pressable onPress={openMenu} hitSlop={12}>
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+        </Pressable>
       </View>
 
-      <PostBody post={post} onDoubleTap={likeFromDoubleTap} />
+      <PostBody post={post} onDoubleTap={likeFromDoubleTap} active={active} />
 
-      {/* Corazón, hilo y compartir, con su número al lado como en Instagram */}
+      {/* Corazón, comentarios y compartir a la izquierda; guardar a la derecha */}
       <View style={styles.actions}>
         <View style={styles.action}>
           <HeartButton liked={post.liked} onPress={() => toggleLike(post.id)} />
           {post.likes > 0 && <Text style={styles.count}>{post.likes}</Text>}
         </View>
         <Pressable onPress={openThread} hitSlop={8} style={styles.action}>
-          <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} style={styles.flip} />
           {post.replies.length > 0 && <Text style={styles.count}>{post.replies.length}</Text>}
         </Pressable>
-        <Pressable onPress={share} hitSlop={8} style={styles.action}>
+        <Pressable onPress={() => sharePost(post)} hitSlop={8} style={styles.action}>
           <Ionicons name="paper-plane-outline" size={23} color={colors.text} />
         </Pressable>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={() => toggleSave(post.id)} hitSlop={8}>
+          <Ionicons name={post.saved ? 'bookmark' : 'bookmark-outline'} size={23} color={colors.text} />
+        </Pressable>
       </View>
+
+      {caption ? (
+        <Text style={styles.caption}>
+          <Text style={styles.bold} onPress={openProfile}>
+            {post.author.name}{' '}
+          </Text>
+          {caption}
+        </Text>
+      ) : null}
 
       {!inThread && post.replies.length > 0 && (
         <Pressable onPress={openThread} style={styles.replyPreview}>
           {post.replies.length > 1 && (
-            <Text style={styles.meta}>Ver las {post.replies.length} respuestas</Text>
+            <Text style={styles.viewAll}>Ver los {post.replies.length} comentarios</Text>
           )}
-          {/* Muestra la respuesta más reciente, como los comentarios de Instagram */}
+          {/* El comentario más reciente, como en Instagram */}
           <Text style={styles.replyText} numberOfLines={2}>
-            <Text style={styles.bold}>{post.replies[post.replies.length - 1].author.name} </Text>
-            {post.replies[post.replies.length - 1].text}
+            <Text style={styles.bold}>{lastReply.author.name} </Text>
+            {lastReply.text}
           </Text>
         </Pressable>
       )}
+
+      <Text style={styles.time}>{timeAgo(post.createdAt, true)}</Text>
     </View>
   );
 }
 
-function shareText(post: Post): string {
-  switch (post.type) {
-    case 'text':
-      return post.text;
-    case 'photo':
-      return post.caption || 'una foto';
-    case 'poll':
-      return post.question;
-    case 'product':
-      return `${post.name} a $${post.price}`;
-    case 'event':
-      return `${post.title} el ${post.date} a las ${post.time}`;
-  }
+// Menú de los tres puntitos de una publicación
+export function usePostMenu(post: Post) {
+  const me = useCurrentUser();
+  const navigation = useRootNavigation();
+  const { deletePost, toggleSave } = usePosts();
+  const showActions = useActionSheet();
+  const isMine = post.author.id === me.id;
+
+  return () =>
+    showActions({
+      options: [
+        {
+          label: post.saved ? 'Quitar de guardados' : 'Guardar',
+          icon: post.saved ? 'bookmark' : 'bookmark-outline',
+          onPress: () => toggleSave(post.id),
+        },
+        { label: 'Compartir', icon: 'paper-plane-outline', onPress: () => sharePost(post) },
+        ...(isMine
+          ? []
+          : [
+              {
+                label: `Ver perfil de ${post.author.name.split(' ')[0]}`,
+                icon: 'person-circle-outline' as const,
+                onPress: () => navigation.navigate('Profile', { userId: post.author.id }),
+              },
+            ]),
+        ...(isMine
+          ? [
+              {
+                label: 'Borrar publicación',
+                icon: 'trash-outline' as const,
+                destructive: true,
+                onPress: () =>
+                  Alert.alert('Borrar publicación', 'Se borrará para todos. ¿Seguro?', [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Borrar', style: 'destructive', onPress: () => deletePost(post.id) },
+                  ]),
+              },
+            ]
+          : []),
+      ],
+    });
 }
 
-function TypeTag({ type }: { type: Post['type'] }) {
-  const info = postTypeInfo[type];
-  return (
-    <View style={[styles.tag, { backgroundColor: info.color + '1A' }]}>
-      <Ionicons name={info.icon} size={12} color={info.color} />
-      <Text style={[styles.tagText, { color: info.color }]}>{info.label}</Text>
-    </View>
-  );
+export function sharePost(post: Post) {
+  const text = (() => {
+    switch (post.type) {
+      case 'text':
+        return post.text;
+      case 'photo':
+        return (post.caption || (post.mediaType === 'video' ? 'un video' : 'una foto')) + `\n${post.imageUrl}`;
+      case 'poll':
+        return post.question;
+      case 'product':
+        return `${post.name} a $${post.price}\n${post.imageUrl}`;
+      case 'event':
+        return `${post.title} el ${post.date} a las ${post.time}`;
+    }
+  })();
+  Share.share({ message: `${post.author.name} en Howl: ${text}` });
 }
 
 // Corazón que "brinca" al tocarlo
-function HeartButton({ liked, onPress }: { liked: boolean; onPress: () => void }) {
+export function HeartButton({
+  liked,
+  onPress,
+  size = 26,
+  color = colors.text,
+}: {
+  liked: boolean;
+  onPress: () => void;
+  size?: number;
+  color?: string;
+}) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const press = () => {
@@ -130,56 +196,20 @@ function HeartButton({ liked, onPress }: { liked: boolean; onPress: () => void }
   return (
     <Pressable onPress={press} hitSlop={8}>
       <Animated.View style={{ transform: [{ scale }] }}>
-        <Ionicons
-          name={liked ? 'heart' : 'heart-outline'}
-          size={26}
-          color={liked ? colors.heart : colors.text}
-        />
+        <Ionicons name={liked ? 'heart' : 'heart-outline'} size={size} color={liked ? colors.heart : color} />
       </Animated.View>
     </Pressable>
   );
 }
 
-// Imagen que detecta doble toque y muestra un corazón grande encima
-function DoubleTapImage({ uri, ratio, onDoubleTap }: { uri: string; ratio: number; onDoubleTap: () => void }) {
-  const lastTap = useRef(0);
-  const heart = useRef(new Animated.Value(0)).current;
+type BodyProps = { post: Post; onDoubleTap: () => void; active: boolean };
 
-  const handlePress = () => {
-    const now = Date.now();
-    if (now - lastTap.current < 300) {
-      onDoubleTap();
-      heart.setValue(0);
-      Animated.sequence([
-        Animated.spring(heart, { toValue: 1, useNativeDriver: true }),
-        Animated.delay(400),
-        Animated.timing(heart, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
-    }
-    lastTap.current = now;
-  };
-
-  return (
-    <Pressable onPress={handlePress}>
-      <Image source={{ uri }} style={[styles.image, { aspectRatio: ratio }]} />
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.bigHeart, { opacity: heart, transform: [{ scale: heart }] }]}
-      >
-        <Ionicons name="heart" size={100} color="#fff" />
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-type BodyProps = { post: Post; onDoubleTap: () => void };
-
-function PostBody({ post, onDoubleTap }: BodyProps) {
+function PostBody({ post, onDoubleTap, active }: BodyProps) {
   switch (post.type) {
     case 'text':
       return <TextBody post={post} />;
     case 'photo':
-      return <PhotoBody post={post} onDoubleTap={onDoubleTap} />;
+      return <PhotoBody post={post} onDoubleTap={onDoubleTap} active={active} />;
     case 'poll':
       return <PollBody post={post} />;
     case 'product':
@@ -193,12 +223,54 @@ function TextBody({ post }: { post: TextPost }) {
   return <Text style={[styles.padded, styles.tweet]}>{post.text}</Text>;
 }
 
-function PhotoBody({ post, onDoubleTap }: { post: PhotoPost; onDoubleTap: () => void }) {
+function PhotoBody({ post, onDoubleTap, active }: { post: PhotoPost; onDoubleTap: () => void; active: boolean }) {
+  const ratio = feedRatio(post.aspectRatio, 1);
+  if (post.mediaType === 'video') return <FeedVideo post={post} ratio={ratio} active={active} onDoubleTap={onDoubleTap} />;
   return (
-    <View>
-      {post.caption ? <Text style={[styles.padded, styles.body]}>{post.caption}</Text> : null}
-      <DoubleTapImage uri={post.imageUrl} ratio={1} onDoubleTap={onDoubleTap} />
-    </View>
+    <DoubleTap onDoubleTap={onDoubleTap}>
+      <Image source={{ uri: post.imageUrl }} style={[styles.image, { aspectRatio: ratio }]} />
+    </DoubleTap>
+  );
+}
+
+// Video del Feed: se reproduce solo y sin sonido; un toque le pone sonido
+function FeedVideo({
+  post,
+  ratio,
+  active,
+  onDoubleTap,
+}: {
+  post: PhotoPost;
+  ratio: number;
+  active: boolean;
+  onDoubleTap: () => void;
+}) {
+  const [muted, setMuted] = useState(true);
+  const player = useVideoPlayer(post.imageUrl, (p) => {
+    p.loop = true;
+    p.muted = true;
+  });
+
+  useEffect(() => {
+    if (active) player.play();
+    else player.pause();
+  }, [active, player]);
+
+  const toggleMute = () => {
+    player.muted = !muted;
+    setMuted(!muted);
+  };
+
+  return (
+    <DoubleTap onDoubleTap={onDoubleTap} onSingleTap={toggleMute}>
+      <View style={[styles.image, { aspectRatio: ratio }]}>
+        {post.thumbUrl && <Image source={{ uri: post.thumbUrl }} style={StyleSheet.absoluteFill} />}
+        <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
+      </View>
+      <View style={styles.muteButton}>
+        <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={14} color="#fff" />
+      </View>
+    </DoubleTap>
   );
 }
 
@@ -220,11 +292,7 @@ function PollBody({ post }: { post: PollPost }) {
             style={[styles.option, selected && styles.optionSelected]}
           >
             {voted && <View style={[styles.optionBar, { width: `${percent}%` }]} />}
-            <Ionicons
-              name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-              size={20}
-              color={colors.primary}
-            />
+            <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={colors.primary} />
             <Text style={styles.optionLabel}>{option.label}</Text>
             {voted && <Text style={styles.percent}>{percent}%</Text>}
           </Pressable>
@@ -240,9 +308,14 @@ function PollBody({ post }: { post: PollPost }) {
 function ProductBody({ post, onDoubleTap }: { post: ProductPost; onDoubleTap: () => void }) {
   return (
     <View>
-      <DoubleTapImage uri={post.imageUrl} ratio={4 / 3} onDoubleTap={onDoubleTap} />
+      <DoubleTap onDoubleTap={onDoubleTap}>
+        <Image source={{ uri: post.imageUrl }} style={[styles.image, { aspectRatio: feedRatio(post.aspectRatio, 4 / 3) }]} />
+        <View style={styles.priceTag}>
+          <Ionicons name="pricetag" size={13} color="#fff" />
+          <Text style={styles.priceTagText}>${post.price.toLocaleString('es-MX')}</Text>
+        </View>
+      </DoubleTap>
       <View style={[styles.padded, { marginTop: 10 }]}>
-        <Text style={styles.price}>${post.price.toLocaleString('es-MX')}</Text>
         <Text style={styles.productName}>{post.name}</Text>
         {post.description ? <Text style={styles.description}>{post.description}</Text> : null}
       </View>
@@ -285,7 +358,7 @@ function EventBody({ post }: { post: EventPost }) {
         <Ionicons
           name={post.imGoing ? 'checkmark-circle' : 'star-outline'}
           size={18}
-          color={post.imGoing ? '#fff' : colors.primary}
+          color={post.imGoing ? '#fff' : colors.text}
         />
         <Text style={[styles.goingText, post.imGoing && { color: '#fff' }]}>
           {post.imGoing ? 'Asistirás' : 'Asistiré'} · {post.going}
@@ -296,48 +369,42 @@ function EventBody({ post }: { post: EventPost }) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.background,
-    paddingTop: 12,
-    paddingBottom: 14,
-    // Línea delgada entre publicaciones
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, marginBottom: 10 },
-  authorName: { fontWeight: '700', fontSize: 15, color: colors.text },
-  meta: { color: colors.muted, fontSize: 13 },
+  card: { backgroundColor: colors.background, paddingBottom: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  authorName: { fontWeight: '700', fontSize: 14, color: colors.text },
+  meta: { color: colors.muted, fontSize: 12 },
   padded: { paddingHorizontal: 14 },
   body: { fontSize: 15, color: colors.text, marginBottom: 8 },
-  tweet: { fontSize: 17, lineHeight: 24, color: colors.text },
+  tweet: { fontSize: 16, lineHeight: 23, color: colors.text, paddingBottom: 2 },
   bold: { fontWeight: '700' },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  tagText: { fontSize: 12, fontWeight: '700' },
+  flip: { transform: [{ scaleX: -1 }] },
   image: { width: '100%', backgroundColor: colors.surface },
-  bigHeart: {
-    ...StyleSheet.absoluteFill,
+  muteButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 14, paddingTop: 12 },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  count: { fontWeight: '700', color: colors.text, fontSize: 14 },
-  replyPreview: { paddingHorizontal: 14, marginTop: 8, gap: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 12, paddingTop: 10 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  count: { fontWeight: '600', color: colors.text, fontSize: 14 },
+  caption: { color: colors.text, fontSize: 14, lineHeight: 19, paddingHorizontal: 14, marginTop: 8 },
+  replyPreview: { paddingHorizontal: 14, marginTop: 6, gap: 3 },
+  viewAll: { color: colors.muted, fontSize: 14 },
   replyText: { color: colors.text, fontSize: 14 },
+  time: { color: colors.muted, fontSize: 11, paddingHorizontal: 14, marginTop: 6 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     overflow: 'hidden',
@@ -346,31 +413,44 @@ const styles = StyleSheet.create({
   optionBar: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.primarySoft },
   optionLabel: { flex: 1, fontSize: 15, color: colors.text, fontWeight: '500' },
   percent: { fontWeight: '700', color: colors.text },
-  price: { fontSize: 22, fontWeight: '800', color: colors.price },
-  productName: { fontSize: 17, fontWeight: '800', color: colors.text, marginTop: 2 },
-  description: { color: colors.muted, fontSize: 15, marginTop: 4, lineHeight: 21 },
+  priceTag: {
+    position: 'absolute',
+    left: 12,
+    bottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  priceTagText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  productName: { fontSize: 16, fontWeight: '700', color: colors.text },
+  description: { color: colors.text, fontSize: 14, marginTop: 3, lineHeight: 20 },
   eventBox: { gap: 10 },
   eventTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   dateTile: {
     width: 58,
     height: 62,
-    borderRadius: 14,
-    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dateMonth: { color: colors.primary, fontWeight: '800', fontSize: 12 },
+  dateMonth: { color: colors.heart, fontWeight: '800', fontSize: 12 },
   dateDay: { color: colors.text, fontWeight: '800', fontSize: 24 },
-  eventTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
+  eventTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   goingButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderRadius: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    paddingVertical: 9,
+    backgroundColor: colors.surface,
   },
   goingButtonActive: { backgroundColor: colors.primary },
-  goingText: { color: colors.primary, fontWeight: '700' },
+  goingText: { color: colors.text, fontWeight: '700' },
 });

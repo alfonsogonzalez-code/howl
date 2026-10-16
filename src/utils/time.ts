@@ -1,11 +1,22 @@
 // Convierte una fecha en texto corto: "ahora", "5 min", "3 h", "2 d".
-export function timeAgo(timestamp: number): string {
+// Con `long`: "hace 5 minutos", "hace 3 horas", "hace 2 días" (debajo de las publicaciones).
+export function timeAgo(timestamp: number, long = false): string {
   const minutes = Math.floor((Date.now() - timestamp) / 60000);
-  if (minutes < 1) return 'ahora';
-  if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h`;
-  return `${Math.floor(hours / 24)} d`;
+  const days = Math.floor(hours / 24);
+  if (!long) {
+    if (minutes < 1) return 'ahora';
+    if (minutes < 60) return `${minutes} min`;
+    if (hours < 24) return `${hours} h`;
+    if (days < 7) return `${days} d`;
+    return `${Math.floor(days / 7)} sem`;
+  }
+  const plural = (n: number, word: string) => `hace ${n} ${word}${n === 1 ? '' : word.endsWith('s') ? '' : 's'}`;
+  if (minutes < 1) return 'justo ahora';
+  if (minutes < 60) return plural(minutes, 'minuto');
+  if (hours < 24) return plural(hours, 'hora');
+  if (days < 7) return plural(days, 'día');
+  return plural(Math.floor(days / 7), 'semana');
 }
 
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];

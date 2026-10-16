@@ -2,11 +2,14 @@ import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts, GrandHotel_400Regular } from '@expo-google-fonts/grand-hotel';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PostsProvider } from './src/context/PostsContext';
 import { BannerProvider } from './src/context/BannerContext';
 import { NotificationsProvider } from './src/context/NotificationsContext';
 import { ChatProvider } from './src/context/ChatContext';
+import { ActionSheetProvider } from './src/context/ActionSheetContext';
+import { usePushNotifications } from './src/lib/push';
 import { navigationRef } from './src/navigationRef';
 import { RootNavigator } from './src/navigation';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -19,6 +22,10 @@ const theme = {
 };
 
 export default function App() {
+  // Letra del logo "Howl" (como la de Instagram)
+  const [fontsLoaded, fontError] = useFonts({ GrandHotel_400Regular });
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -47,14 +54,23 @@ function Gate() {
   return (
     <PostsProvider>
       <NavigationContainer theme={theme} ref={navigationRef}>
-        <BannerProvider>
-          <NotificationsProvider>
-            <ChatProvider>
-              <RootNavigator />
-            </ChatProvider>
-          </NotificationsProvider>
-        </BannerProvider>
+        <ActionSheetProvider>
+          <BannerProvider>
+            <NotificationsProvider>
+              <ChatProvider>
+                <PushNotifications userId={profile.id} />
+                <RootNavigator />
+              </ChatProvider>
+            </NotificationsProvider>
+          </BannerProvider>
+        </ActionSheetProvider>
       </NavigationContainer>
     </PostsProvider>
   );
+}
+
+// Registra el celular para recibir avisos y abre lo que digan al tocarlos
+function PushNotifications({ userId }: { userId: string }) {
+  usePushNotifications(userId);
+  return null;
 }

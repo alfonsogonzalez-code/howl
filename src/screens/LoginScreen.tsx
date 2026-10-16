@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useAuth } from '../context/AuthContext';
 import { isValidEmail } from '../config';
-import { colors } from '../theme';
+import { colors, logoFont } from '../theme';
 
 // Entrar o crear cuenta con correo y contraseña
 export function LoginScreen() {
@@ -22,6 +23,7 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const keyboard = useKeyboardInset();
+  const passwordRef = useRef<TextInput>(null);
 
   const submit = async () => {
     if (!isValidEmail(email)) return Alert.alert('Correo no válido', 'Revisa que tu correo esté bien escrito.');
@@ -48,11 +50,16 @@ export function LoginScreen() {
   const isLogin = mode === 'login';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']} onLayout={keyboard.onLayout}>
-      {/* Con el teclado abierto, todo sube para que se vea el botón */}
-      <View style={[styles.content, { paddingBottom: keyboard.bottom + 24 }]}>
-        <Text style={styles.logo}>Howl</Text>
-        <Text style={styles.subtitle}>La comunidad de la UPVT en un solo lugar</Text>
+    <SafeAreaView style={styles.container} edges={['top']} ref={keyboard.ref} onLayout={keyboard.onLayout}>
+      {/* Con el teclado abierto, el espacio de abajo crece y todo sube para que
+          siempre veas donde escribes; si no cabe, se puede deslizar */}
+      <ScrollView
+        style={{ flex: 1, marginBottom: keyboard.bottom }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={[styles.logo, keyboard.keyboardOpen && styles.logoSmall]}>Howl</Text>
+        {!keyboard.keyboardOpen && <Text style={styles.subtitle}>La comunidad de la UPVT en un solo lugar</Text>}
 
         <View style={styles.form}>
           <Text style={styles.label}>Correo</Text>
@@ -66,9 +73,13 @@ export function LoginScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="email"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            submitBehavior="submit"
           />
           <Text style={styles.label}>Contraseña</Text>
           <TextInput
+            ref={passwordRef}
             value={password}
             onChangeText={setPassword}
             placeholder={isLogin ? 'Tu contraseña' : 'Mínimo 6 caracteres'}
@@ -77,6 +88,8 @@ export function LoginScreen() {
             secureTextEntry
             autoCapitalize="none"
             autoComplete={isLogin ? 'current-password' : 'new-password'}
+            returnKeyType="go"
+            onSubmitEditing={submit}
           />
           <Pressable style={[styles.button, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy}>
             {busy ? (
@@ -94,21 +107,24 @@ export function LoginScreen() {
             </Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { flex: 1, justifyContent: 'center', padding: 24 },
-  logo: { fontSize: 56, fontWeight: '900', color: colors.primary, textAlign: 'center', letterSpacing: -2 },
-  subtitle: { textAlign: 'center', color: colors.muted, fontSize: 16, marginBottom: 40 },
+  content: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  logo: { fontFamily: logoFont, fontSize: 72, color: colors.text, textAlign: 'center' },
+  logoSmall: { fontSize: 52, marginBottom: 8 },
+  subtitle: { textAlign: 'center', color: colors.muted, fontSize: 16, marginBottom: 36 },
   form: { gap: 10 },
   label: { fontWeight: '700', color: colors.text, marginTop: 4 },
   input: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 16,
@@ -116,7 +132,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 10,

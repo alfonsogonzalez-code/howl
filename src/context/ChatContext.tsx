@@ -94,7 +94,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isMember) return;
     const channel = supabase
-      .channel('howl-chat')
+      .channel(`howl-chat-${me.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "277917339027",
+    "project_id": "howl-fb607",
+    "storage_bucket": "howl-fb607.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:277917339027:android:cb475e87eb1ad198c1ac66",
+        "android_client_info": {
+          "package_name": "com.upvt.howl"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9ZTxg3w1guNV_21HrM1lhqUfsjNKuozQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

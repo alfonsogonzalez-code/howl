@@ -2,7 +2,7 @@
   "expo": {
     "name": "Howl",
     "slug": "howl",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,13 +12,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#6D28D9",
+        "backgroundColor": "#5B21B6",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.upvt.howl"
+      "package": "com.upvt.howl",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,20 +32,38 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Howl necesita acceso a tus fotos para que puedas publicarlas.",
+          "photosPermission": "Howl necesita acceso a tus fotos y videos para que puedas publicarlos.",
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6D28D9",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#6D28D9"
+        }
+      ],
+      "expo-video",
+      "expo-font"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/628c21af-7aa7-4def-b05d-135408b3e66a"
+    },
     "extra": {
       "eas": {
         "projectId": "628c21af-7aa7-4def-b05d-135408b3e66a"
       }
-    },
-    "owner": "ponchogg12",
-    "updates": {
-      "url": "https://u.expo.dev/628c21af-7aa7-4def-b05d-135408b3e66a"
     }
   }
 }

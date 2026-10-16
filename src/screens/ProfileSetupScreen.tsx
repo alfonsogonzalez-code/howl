@@ -27,9 +27,11 @@ export function ProfileSetupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']} onLayout={keyboard.onLayout}>
+    <SafeAreaView style={styles.container} edges={['top']} ref={keyboard.ref} onLayout={keyboard.onLayout}>
+      {/* El área se encoge arriba del teclado para que siempre veas donde escribes */}
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: keyboard.bottom + 24 }]}
+        style={{ flex: 1, marginBottom: keyboard.bottom }}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>¡Bienvenido a Howl! 🐺</Text>
@@ -72,13 +74,15 @@ export function ProfileSetupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 24, gap: 12 },
+  content: { padding: 24, paddingBottom: 32, gap: 12 },
   title: { fontSize: 28, fontWeight: '900', color: colors.text, marginTop: 20 },
   subtitle: { color: colors.muted, fontSize: 16, marginBottom: 16 },
   label: { fontWeight: '700', color: colors.text, marginTop: 8 },
   input: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 16,

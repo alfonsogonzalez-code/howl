@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GroupAvatar } from '../components/GroupAvatar';
 import { useChat } from '../context/ChatContext';
@@ -9,7 +8,7 @@ import { useRootNavigation } from '../navigationTypes';
 import { colors } from '../theme';
 import { chatListTime } from '../utils/time';
 
-// Lista de chats, como WhatsApp. Solo aparece el grupo de tu carrera.
+// Lista de chats (el avioncito de arriba en el Feed). Solo aparece el grupo de tu carrera.
 export function ChatsScreen() {
   const { career, membership, messages, memberCount, unread, join } = useChat();
   const me = useCurrentUser();
@@ -34,8 +33,7 @@ export function ChatsScreen() {
     : 'Aún no hay mensajes. ¡Saluda al grupo! 👋';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.title}>Mensajes</Text>
+    <View style={styles.container}>
 
       {membership === undefined ? (
         <ActivityIndicator style={{ padding: 40 }} color={colors.primary} />
@@ -87,13 +85,12 @@ export function ChatsScreen() {
           </Text>
         </>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  title: { fontSize: 26, fontWeight: '800', color: colors.text, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   groupName: { flex: 1, fontWeight: '700', fontSize: 16, color: colors.text },
